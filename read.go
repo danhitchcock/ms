@@ -7,6 +7,17 @@ import (
 	"os"
 )
 
+func ThermoRead(r io.Reader, data interface{}) {
+	switch v := data.(type) {
+	case *PascalString:
+		binary.Read(r, binary.LittleEndian, &v.Length)
+		v.Text = make([]uint16, v.Length)
+		binary.Read(r, binary.LittleEndian, &v.Text)
+	default:
+		binary.Read(r, binary.LittleEndian, v)
+	}
+}
+
 func ReadInfo(fn string, pos int64, v version) (Info, int64) {
 	file, err := os.Open(fn)
 	pos, err = file.Seek(pos, 0)
@@ -16,52 +27,53 @@ func ReadInfo(fn string, pos int64, v version) (Info, int64) {
 
 	data := new(Info)
 
+	ThermoRead(file, &data.Preamble.Methodfilepresent)
+	ThermoRead(file, &data.Preamble.Year)
 
-	binary.Read(file, binary.LittleEndian, &data.Preamble.Methodfilepresent)
-	binary.Read(file, binary.LittleEndian, &data.Preamble.Year)
-	binary.Read(file, binary.LittleEndian, &data.Preamble.Month)
-	binary.Read(file, binary.LittleEndian, &data.Preamble.Weekday)
-	binary.Read(file, binary.LittleEndian, &data.Preamble.Day)
-	binary.Read(file, binary.LittleEndian, &data.Preamble.Hour)
-	binary.Read(file, binary.LittleEndian, &data.Preamble.Minute)
-	binary.Read(file, binary.LittleEndian, &data.Preamble.Second)
-	binary.Read(file, binary.LittleEndian, &data.Preamble.Millisecond)
+	ThermoRead(file, &data.Preamble.Month)
+	ThermoRead(file, &data.Preamble.Weekday)
+	ThermoRead(file, &data.Preamble.Day)
+	ThermoRead(file, &data.Preamble.Hour)
+	ThermoRead(file, &data.Preamble.Minute)
+	ThermoRead(file, &data.Preamble.Second)
+	ThermoRead(file, &data.Preamble.Millisecond)
 
 	if v >= 57 {
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Unknown1)
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Data_addr32)
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Unknown2)
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Unknown3)
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Unknown4)
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Unknown5)
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Runheader_addr32)
+		ThermoRead(file, &data.Preamble.Unknown1)
+		ThermoRead(file, &data.Preamble.Data_addr32)
+		ThermoRead(file, &data.Preamble.Unknown2)
+		ThermoRead(file, &data.Preamble.Unknown3)
+		ThermoRead(file, &data.Preamble.Unknown4)
+		ThermoRead(file, &data.Preamble.Unknown5)
+		ThermoRead(file, &data.Preamble.Runheader_addr32)
 		if v <= 63 {
 			data.Preamble.Unknown6 = make([]byte, 756)
 		} else {
 			data.Preamble.Unknown6 = make([]byte, 760)
 		}
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Unknown6)
+		ThermoRead(file, &data.Preamble.Unknown6)
 	}
 	if v >= 64 {
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Data_addr)
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Unknown7)
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Unknown8)
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Runheader_addr)
+		ThermoRead(file, &data.Preamble.Data_addr)
+		ThermoRead(file, &data.Preamble.Unknown7)
+		ThermoRead(file, &data.Preamble.Unknown8)
+		ThermoRead(file, &data.Preamble.Runheader_addr)
 
 		if v <= 66 {
 			data.Preamble.Unknown9 = make([]byte, 1008)
 		} else {
 			data.Preamble.Unknown9 = make([]byte, 1024)
 		}
-		binary.Read(file, binary.LittleEndian, &data.Preamble.Unknown9)
+		ThermoRead(file, &data.Preamble.Unknown9)
 	}
 
-	data.Heading1 = ReadPascalString(file)
-	data.Heading2 = ReadPascalString(file)
-	data.Heading3 = ReadPascalString(file)
-	data.Heading4 = ReadPascalString(file)
-	data.Heading5 = ReadPascalString(file)
-	data.Unknown1 = ReadPascalString(file)
+	log.Print(2)
+	ThermoRead(file, &data.Heading1)
+	ThermoRead(file, &data.Heading2)
+	ThermoRead(file, &data.Heading3)
+	ThermoRead(file, &data.Heading4)
+	ThermoRead(file, &data.Heading5)
+	ThermoRead(file, &data.Unknown1)
 
 	pos, err = file.Seek(0, 1)
 	if err != nil {
@@ -77,12 +89,9 @@ func ReadAutoSamplerInfo(fn string, pos int64) (AutoSamplerInfo, int64) {
 		log.Fatal(err)
 	}
 	data := new(AutoSamplerInfo)
-	err = binary.Read(file, binary.LittleEndian, &data.Preamble)
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	data.Text = ReadPascalString(file)
+	ThermoRead(file, &data.Preamble)
+	ThermoRead(file, &data.Text)
 
 	pos, err = file.Seek(0, 1)
 	if err != nil {
@@ -99,47 +108,44 @@ func ReadSequencerRow(fn string, pos int64, v version) (SequencerRow, int64) {
 	}
 
 	data := new(SequencerRow)
-	err = binary.Read(file, binary.LittleEndian, &data.Injection)
-	if err != nil {
-		log.Fatal(err)
-	}
+	ThermoRead(file, &data.Injection)
 
-	data.Unknown1 = ReadPascalString(file)
-	data.Unknown2 = ReadPascalString(file)
-	data.Id = ReadPascalString(file)
-	data.Comment = ReadPascalString(file)
-	data.Userlabel1 = ReadPascalString(file)
-	data.Userlabel2 = ReadPascalString(file)
-	data.Userlabel3 = ReadPascalString(file)
-	data.Userlabel4 = ReadPascalString(file)
-	data.Userlabel5 = ReadPascalString(file)
-	data.Instmethod = ReadPascalString(file)
-	data.Procmethod = ReadPascalString(file)
-	data.Filename = ReadPascalString(file)
-	data.Path = ReadPascalString(file)
+	ThermoRead(file, &data.Unknown1)
+	ThermoRead(file, &data.Unknown2)
+	ThermoRead(file, &data.Id)
+	ThermoRead(file, &data.Comment)
+	ThermoRead(file, &data.Userlabel1)
+	ThermoRead(file, &data.Userlabel2)
+	ThermoRead(file, &data.Userlabel3)
+	ThermoRead(file, &data.Userlabel4)
+	ThermoRead(file, &data.Userlabel5)
+	ThermoRead(file, &data.Instmethod)
+	ThermoRead(file, &data.Procmethod)
+	ThermoRead(file, &data.Filename)
+	ThermoRead(file, &data.Path)
 
 	if v >= 57 {
-		data.Vial = ReadPascalString(file)
-		data.Unknown3 = ReadPascalString(file)
-		data.Unknown4 = ReadPascalString(file)
-		binary.Read(file, binary.LittleEndian, &data.Unknown5)
+		ThermoRead(file, &data.Vial)
+		ThermoRead(file, &data.Unknown3)
+		ThermoRead(file, &data.Unknown4)
+		ThermoRead(file, &data.Unknown5)
 	}
 	if v >= 60 {
-		data.Unknown6 = ReadPascalString(file)
-		data.Unknown7 = ReadPascalString(file)
-		data.Unknown8 = ReadPascalString(file)
-		data.Unknown9 = ReadPascalString(file)
-		data.Unknown10 = ReadPascalString(file)
-		data.Unknown11 = ReadPascalString(file)
-		data.Unknown12 = ReadPascalString(file)
-		data.Unknown13 = ReadPascalString(file)
-		data.Unknown14 = ReadPascalString(file)
-		data.Unknown15 = ReadPascalString(file)
-		data.Unknown16 = ReadPascalString(file)
-		data.Unknown17 = ReadPascalString(file)
-		data.Unknown18 = ReadPascalString(file)
-		data.Unknown19 = ReadPascalString(file)
-		data.Unknown20 = ReadPascalString(file)
+		ThermoRead(file, &data.Unknown6)
+		ThermoRead(file, &data.Unknown7)
+		ThermoRead(file, &data.Unknown8)
+		ThermoRead(file, &data.Unknown9)
+		ThermoRead(file, &data.Unknown10)
+		ThermoRead(file, &data.Unknown11)
+		ThermoRead(file, &data.Unknown12)
+		ThermoRead(file, &data.Unknown13)
+		ThermoRead(file, &data.Unknown14)
+		ThermoRead(file, &data.Unknown15)
+		ThermoRead(file, &data.Unknown16)
+		ThermoRead(file, &data.Unknown17)
+		ThermoRead(file, &data.Unknown18)
+		ThermoRead(file, &data.Unknown19)
+		ThermoRead(file, &data.Unknown20)
 	}
 
 	pos, err = file.Seek(0, 1)
@@ -147,17 +153,6 @@ func ReadSequencerRow(fn string, pos int64, v version) (SequencerRow, int64) {
 		log.Fatal(err)
 	}
 	return *data, pos
-}
-
-func ReadPascalString(r io.Reader) PascalString {
-	data := new(PascalString)
-	binary.Read(r, binary.LittleEndian, &data.Length)
-
-	data.Text = make([]uint16, data.Length)
-
-	binary.Read(r, binary.LittleEndian, &data.Text)
-
-	return *data
 }
 
 func ReadFileHeader(filename string) (FileHeader, int64) {
