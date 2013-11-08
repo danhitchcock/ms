@@ -1,0 +1,27 @@
+//Package UnThermo, after unfinnigan http://code.google.com/p/unfinnigan/wiki/FileLayoutOverview
+
+package main
+
+import (
+	"bitbucket.org/proteinspector/unthermo"
+	"flag"
+	"fmt"
+)
+
+func main() {
+	flag.Parse() // Scans the arg list and sets up flags.
+
+	for _, filename := range flag.Args() {
+		hdr, pos := unthermo.ReadFileHeader(filename)
+		fmt.Println("v", hdr.Version)
+		_, pos = unthermo.ReadSequencerRow(filename, pos, hdr.Version)
+		_, pos = unthermo.ReadAutoSamplerInfo(filename, pos)
+		info, pos := unthermo.ReadInfo(filename, pos, hdr.Version)
+
+		fmt.Println(int64(info.Preamble.Runheader_addr32))
+
+		rh, pos := unthermo.ReadRunHeader(filename, int64(info.Preamble.Runheader_addr32), hdr.Version)
+		fmt.Println(rh)
+		fmt.Println(rh.SampleInfo.ScanIndexAddress, rh.Scantrailer_addr32)
+	}
+}
