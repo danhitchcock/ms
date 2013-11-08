@@ -7,137 +7,7 @@ import (
 	"os"
 )
 
-func ReadPacketHeader(fn string, pos int64, v version) (PacketHeader, int64) {
-	file, err := os.Open(fn)
-	pos, err = file.Seek(pos, 0)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	data := new(PacketHeader)
-	ThermoRead(file, data)
-
-	pos, err = file.Seek(0, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return *data, pos
-}
-
-func ReadScanIndexEntry(fn string, pos int64, v version) (ScanIndexEntry, int64) {
-	file, err := os.Open(fn)
-	pos, err = file.Seek(pos, 0)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	data := new(ScanIndexEntry)
-	if v >= 64 {
-		ThermoRead(file, data)
-	} else {
-		ThermoRead(file, &data.Offset32)
-		ThermoRead(file, &data.Index)
-		ThermoRead(file, &data.Scanevent)
-		ThermoRead(file, &data.Scansegment)
-		ThermoRead(file, &data.Next)
-		ThermoRead(file, &data.Unknown1)
-		ThermoRead(file, &data.Datasize)
-		ThermoRead(file, &data.Starttime)
-		ThermoRead(file, &data.Totalcurrent)
-		ThermoRead(file, &data.Baseintensity)
-		ThermoRead(file, &data.Basemz)
-		ThermoRead(file, &data.Lowmz)
-		ThermoRead(file, &data.Highmz)
-	}
-
-	pos, err = file.Seek(0, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return *data, pos
-}
-
-func ReadRunHeader(fn string, pos int64, v version) (RunHeader, int64) {
-	file, err := os.Open(fn)
-	pos, err = file.Seek(pos, 0)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	data := new(RunHeader)
-
-	ThermoRead(file, &data.SampleInfo)
-	ThermoRead(file, &data.Filename1)
-	ThermoRead(file, &data.Filename2)
-	ThermoRead(file, &data.Filename3)
-	ThermoRead(file, &data.Filename4)
-	ThermoRead(file, &data.Filename5)
-	ThermoRead(file, &data.Filename6)
-	ThermoRead(file, &data.Unknown1)
-	ThermoRead(file, &data.Unknown2)
-	ThermoRead(file, &data.Filename7)
-	ThermoRead(file, &data.Filename8)
-	ThermoRead(file, &data.Filename9)
-	ThermoRead(file, &data.Filename10)
-	ThermoRead(file, &data.Filename11)
-	ThermoRead(file, &data.Filename12)
-	ThermoRead(file, &data.Filename13)
-	ThermoRead(file, &data.Scantrailer_addr32)
-	ThermoRead(file, &data.Scanparams_addr32)
-	ThermoRead(file, &data.Unknown3)
-	ThermoRead(file, &data.Unknown4)
-	ThermoRead(file, &data.Nsegs)
-	ThermoRead(file, &data.Unknown5)
-	ThermoRead(file, &data.Unknown6)
-	ThermoRead(file, &data.Own_addr32)
-	ThermoRead(file, &data.Unknown7)
-	ThermoRead(file, &data.Unknown8)
-
-	if v >= 64 {
-		ThermoRead(file, &data.Scanindex_addr)
-		ThermoRead(file, &data.Data_addr)
-		ThermoRead(file, &data.Instlog_addr)
-		ThermoRead(file, &data.Errorlog_addr)
-		ThermoRead(file, &data.Unknown9)
-		ThermoRead(file, &data.Scantrailer_addr)
-		ThermoRead(file, &data.Scanparams_addr)
-		ThermoRead(file, &data.Unknown10)
-		ThermoRead(file, &data.Own_addr)
-
-		ThermoRead(file, &data.Unknown11)
-		ThermoRead(file, &data.Unknown12)
-		ThermoRead(file, &data.Unknown13)
-		ThermoRead(file, &data.Unknown14)
-		ThermoRead(file, &data.Unknown15)
-		ThermoRead(file, &data.Unknown16)
-		ThermoRead(file, &data.Unknown17)
-		ThermoRead(file, &data.Unknown18)
-		ThermoRead(file, &data.Unknown19)
-		ThermoRead(file, &data.Unknown20)
-		ThermoRead(file, &data.Unknown21)
-		ThermoRead(file, &data.Unknown22)
-		ThermoRead(file, &data.Unknown23)
-		ThermoRead(file, &data.Unknown24)
-		ThermoRead(file, &data.Unknown25)
-		ThermoRead(file, &data.Unknown26)
-		ThermoRead(file, &data.Unknown27)
-		ThermoRead(file, &data.Unknown28)
-		ThermoRead(file, &data.Unknown29)
-		ThermoRead(file, &data.Unknown30)
-		ThermoRead(file, &data.Unknown31)
-		ThermoRead(file, &data.Unknown32)
-		ThermoRead(file, &data.Unknown33)
-		ThermoRead(file, &data.Unknown34)
-	}
-
-	pos, err = file.Seek(0, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return *data, pos
-}
-
-func ThermoRead(r io.Reader, data interface{}) {
+func Read(r io.Reader, data interface{}) {
 	switch v := data.(type) {
 	case *PascalString:
 		binary.Read(r, binary.LittleEndian, &v.Length)
@@ -148,157 +18,211 @@ func ThermoRead(r io.Reader, data interface{}) {
 	}
 }
 
-func ReadInfo(fn string, pos int64, v version) (Info, int64) {
+type Reader interface {
+	Read(io.Reader, version)
+}
+
+func ReadFile(fn string, pos int64, v version, data Reader) int64 {
 	file, err := os.Open(fn)
 	pos, err = file.Seek(pos, 0)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	data := new(Info)
+	data.Read(file, v)
 
-	ThermoRead(file, &data.Preamble.Methodfilepresent)
-	ThermoRead(file, &data.Preamble.Year)
-	ThermoRead(file, &data.Preamble.Month)
-	ThermoRead(file, &data.Preamble.Weekday)
-	ThermoRead(file, &data.Preamble.Day)
-	ThermoRead(file, &data.Preamble.Hour)
-	ThermoRead(file, &data.Preamble.Minute)
-	ThermoRead(file, &data.Preamble.Second)
-	ThermoRead(file, &data.Preamble.Millisecond)
+	pos, err = file.Seek(0, 1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return pos
+}
+
+func (data *FileHeader) Read(r io.Reader, v version) {
+	Read(r, data)
+}
+
+func (data *PacketHeader) Read(r io.Reader, v version) {
+	Read(r, data)
+}
+
+func (data *ScanIndexEntry) Read(r io.Reader, v version) {
+	if v >= 64 {
+		Read(r, data)
+	} else {
+		Read(r, &data.Offset32)
+		Read(r, &data.Index)
+		Read(r, &data.Scanevent)
+		Read(r, &data.Scansegment)
+		Read(r, &data.Next)
+		Read(r, &data.Unknown1)
+		Read(r, &data.Datasize)
+		Read(r, &data.Starttime)
+		Read(r, &data.Totalcurrent)
+		Read(r, &data.Baseintensity)
+		Read(r, &data.Basemz)
+		Read(r, &data.Lowmz)
+		Read(r, &data.Highmz)
+	}
+}
+
+func (data *RunHeader) Read(r io.Reader, v version) {
+	Read(r, &data.SampleInfo)
+	Read(r, &data.Filename1)
+	Read(r, &data.Filename2)
+	Read(r, &data.Filename3)
+	Read(r, &data.Filename4)
+	Read(r, &data.Filename5)
+	Read(r, &data.Filename6)
+	Read(r, &data.Unknown1)
+	Read(r, &data.Unknown2)
+	Read(r, &data.Filename7)
+	Read(r, &data.Filename8)
+	Read(r, &data.Filename9)
+	Read(r, &data.Filename10)
+	Read(r, &data.Filename11)
+	Read(r, &data.Filename12)
+	Read(r, &data.Filename13)
+	Read(r, &data.Scantrailer_addr32)
+	Read(r, &data.Scanparams_addr32)
+	Read(r, &data.Unknown3)
+	Read(r, &data.Unknown4)
+	Read(r, &data.Nsegs)
+	Read(r, &data.Unknown5)
+	Read(r, &data.Unknown6)
+	Read(r, &data.Own_addr32)
+	Read(r, &data.Unknown7)
+	Read(r, &data.Unknown8)
+
+	if v >= 64 {
+		Read(r, &data.Scanindex_addr)
+		Read(r, &data.Data_addr)
+		Read(r, &data.Instlog_addr)
+		Read(r, &data.Errorlog_addr)
+		Read(r, &data.Unknown9)
+		Read(r, &data.Scantrailer_addr)
+		Read(r, &data.Scanparams_addr)
+		Read(r, &data.Unknown10)
+		Read(r, &data.Own_addr)
+
+		Read(r, &data.Unknown11)
+		Read(r, &data.Unknown12)
+		Read(r, &data.Unknown13)
+		Read(r, &data.Unknown14)
+		Read(r, &data.Unknown15)
+		Read(r, &data.Unknown16)
+		Read(r, &data.Unknown17)
+		Read(r, &data.Unknown18)
+		Read(r, &data.Unknown19)
+		Read(r, &data.Unknown20)
+		Read(r, &data.Unknown21)
+		Read(r, &data.Unknown22)
+		Read(r, &data.Unknown23)
+		Read(r, &data.Unknown24)
+		Read(r, &data.Unknown25)
+		Read(r, &data.Unknown26)
+		Read(r, &data.Unknown27)
+		Read(r, &data.Unknown28)
+		Read(r, &data.Unknown29)
+		Read(r, &data.Unknown30)
+		Read(r, &data.Unknown31)
+		Read(r, &data.Unknown32)
+		Read(r, &data.Unknown33)
+		Read(r, &data.Unknown34)
+	}
+}
+
+func (data *Info) Read(r io.Reader, v version) {
+	Read(r, &data.Preamble.Methodfilepresent)
+	Read(r, &data.Preamble.Year)
+	Read(r, &data.Preamble.Month)
+	Read(r, &data.Preamble.Weekday)
+	Read(r, &data.Preamble.Day)
+	Read(r, &data.Preamble.Hour)
+	Read(r, &data.Preamble.Minute)
+	Read(r, &data.Preamble.Second)
+	Read(r, &data.Preamble.Millisecond)
 
 	if v >= 57 {
-		ThermoRead(file, &data.Preamble.Unknown1)
-		ThermoRead(file, &data.Preamble.Data_addr32)
-		ThermoRead(file, &data.Preamble.Unknown2)
-		ThermoRead(file, &data.Preamble.Unknown3)
-		ThermoRead(file, &data.Preamble.Unknown4)
-		ThermoRead(file, &data.Preamble.Unknown5)
-		ThermoRead(file, &data.Preamble.Runheader_addr32)
+		Read(r, &data.Preamble.Unknown1)
+		Read(r, &data.Preamble.Data_addr32)
+		Read(r, &data.Preamble.Unknown2)
+		Read(r, &data.Preamble.Unknown3)
+		Read(r, &data.Preamble.Unknown4)
+		Read(r, &data.Preamble.Unknown5)
+		Read(r, &data.Preamble.Runheader_addr32)
 		if v <= 63 {
 			data.Preamble.Unknown6 = make([]byte, 756)
 		} else {
 			data.Preamble.Unknown6 = make([]byte, 760)
 		}
-		ThermoRead(file, &data.Preamble.Unknown6)
+		Read(r, &data.Preamble.Unknown6)
 	}
 	if v >= 64 {
-		ThermoRead(file, &data.Preamble.Data_addr)
-		ThermoRead(file, &data.Preamble.Unknown7)
-		ThermoRead(file, &data.Preamble.Unknown8)
-		ThermoRead(file, &data.Preamble.Runheader_addr)
+		Read(r, &data.Preamble.Data_addr)
+		Read(r, &data.Preamble.Unknown7)
+		Read(r, &data.Preamble.Unknown8)
+		Read(r, &data.Preamble.Runheader_addr)
 
 		if v <= 66 {
 			data.Preamble.Unknown9 = make([]byte, 1008)
 		} else {
 			data.Preamble.Unknown9 = make([]byte, 1024)
 		}
-		ThermoRead(file, &data.Preamble.Unknown9)
+		Read(r, &data.Preamble.Unknown9)
 	}
 
-	ThermoRead(file, &data.Heading1)
-	ThermoRead(file, &data.Heading2)
-	ThermoRead(file, &data.Heading3)
-	ThermoRead(file, &data.Heading4)
-	ThermoRead(file, &data.Heading5)
-	ThermoRead(file, &data.Unknown1)
-
-	pos, err = file.Seek(0, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return *data, pos
+	Read(r, &data.Heading1)
+	Read(r, &data.Heading2)
+	Read(r, &data.Heading3)
+	Read(r, &data.Heading4)
+	Read(r, &data.Heading5)
+	Read(r, &data.Unknown1)
 }
 
-func ReadAutoSamplerInfo(fn string, pos int64) (AutoSamplerInfo, int64) {
-	file, err := os.Open(fn)
-	pos, err = file.Seek(pos, 0)
-	if err != nil {
-		log.Fatal(err)
-	}
-	data := new(AutoSamplerInfo)
-
-	ThermoRead(file, &data.Preamble)
-	ThermoRead(file, &data.Text)
-
-	pos, err = file.Seek(0, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return *data, pos
+func (data *AutoSamplerInfo) Read(r io.Reader, v version) {
+	Read(r, &data.Preamble)
+	Read(r, &data.Text)
 }
 
-func ReadSequencerRow(fn string, pos int64, v version) (SequencerRow, int64) {
-	file, err := os.Open(fn)
-	pos, err = file.Seek(pos, 0)
-	if err != nil {
-		log.Fatal(err)
-	}
+func (data *SequencerRow) Read(r io.Reader, v version) {
+	Read(r, &data.Injection)
 
-	data := new(SequencerRow)
-	ThermoRead(file, &data.Injection)
-
-	ThermoRead(file, &data.Unknown1)
-	ThermoRead(file, &data.Unknown2)
-	ThermoRead(file, &data.Id)
-	ThermoRead(file, &data.Comment)
-	ThermoRead(file, &data.Userlabel1)
-	ThermoRead(file, &data.Userlabel2)
-	ThermoRead(file, &data.Userlabel3)
-	ThermoRead(file, &data.Userlabel4)
-	ThermoRead(file, &data.Userlabel5)
-	ThermoRead(file, &data.Instmethod)
-	ThermoRead(file, &data.Procmethod)
-	ThermoRead(file, &data.Filename)
-	ThermoRead(file, &data.Path)
+	Read(r, &data.Unknown1)
+	Read(r, &data.Unknown2)
+	Read(r, &data.Id)
+	Read(r, &data.Comment)
+	Read(r, &data.Userlabel1)
+	Read(r, &data.Userlabel2)
+	Read(r, &data.Userlabel3)
+	Read(r, &data.Userlabel4)
+	Read(r, &data.Userlabel5)
+	Read(r, &data.Instmethod)
+	Read(r, &data.Procmethod)
+	Read(r, &data.Filename)
+	Read(r, &data.Path)
 
 	if v >= 57 {
-		ThermoRead(file, &data.Vial)
-		ThermoRead(file, &data.Unknown3)
-		ThermoRead(file, &data.Unknown4)
-		ThermoRead(file, &data.Unknown5)
+		Read(r, &data.Vial)
+		Read(r, &data.Unknown3)
+		Read(r, &data.Unknown4)
+		Read(r, &data.Unknown5)
 	}
 	if v >= 60 {
-		ThermoRead(file, &data.Unknown6)
-		ThermoRead(file, &data.Unknown7)
-		ThermoRead(file, &data.Unknown8)
-		ThermoRead(file, &data.Unknown9)
-		ThermoRead(file, &data.Unknown10)
-		ThermoRead(file, &data.Unknown11)
-		ThermoRead(file, &data.Unknown12)
-		ThermoRead(file, &data.Unknown13)
-		ThermoRead(file, &data.Unknown14)
-		ThermoRead(file, &data.Unknown15)
-		ThermoRead(file, &data.Unknown16)
-		ThermoRead(file, &data.Unknown17)
-		ThermoRead(file, &data.Unknown18)
-		ThermoRead(file, &data.Unknown19)
-		ThermoRead(file, &data.Unknown20)
+		Read(r, &data.Unknown6)
+		Read(r, &data.Unknown7)
+		Read(r, &data.Unknown8)
+		Read(r, &data.Unknown9)
+		Read(r, &data.Unknown10)
+		Read(r, &data.Unknown11)
+		Read(r, &data.Unknown12)
+		Read(r, &data.Unknown13)
+		Read(r, &data.Unknown14)
+		Read(r, &data.Unknown15)
+		Read(r, &data.Unknown16)
+		Read(r, &data.Unknown17)
+		Read(r, &data.Unknown18)
+		Read(r, &data.Unknown19)
+		Read(r, &data.Unknown20)
 	}
-
-	pos, err = file.Seek(0, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return *data, pos
-}
-
-func ReadFileHeader(filename string) (FileHeader, int64) {
-	file, err := os.Open(filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	data := new(FileHeader)
-	err = binary.Read(file, binary.LittleEndian, data)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pos, err := file.Seek(0, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return *data, pos
-
 }
