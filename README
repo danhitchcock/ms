@@ -14,16 +14,20 @@ func main() {
 	flag.Parse() // Scans the arg list and sets up flags.
 
 	for _, filename := range flag.Args() {
-		hdr, pos := unthermo.ReadFileHeader(filename)
+		hdr:=new(unthermo.FileHeader)
+		pos := unthermo.ReadFile(filename, 0, 0, hdr)
+		
 		fmt.Println("v", hdr.Version)
-		_, pos = unthermo.ReadSequencerRow(filename, pos, hdr.Version)
-		_, pos = unthermo.ReadAutoSamplerInfo(filename, pos)
-		info, pos := unthermo.ReadInfo(filename, pos, hdr.Version)
+		
+		pos = unthermo.ReadFile(filename, pos, hdr.Version,new(unthermo.SequencerRow))
+		pos = unthermo.ReadFile(filename, pos, 0, new(unthermo.AutoSamplerInfo))
 
-		fmt.Println(int64(info.Preamble.Runheader_addr32))
-
-		rh, pos := unthermo.ReadRunHeader(filename, int64(info.Preamble.Runheader_addr32), hdr.Version)
-		fmt.Println(rh)
+		info:=new(unthermo.Info)
+		pos = unthermo.ReadFile(filename, pos, hdr.Version,info)
+		fmt.Println(info.Preamble.Runheader_addr32)
+		
+		rh:=new(unthermo.RunHeader)
+		pos= unthermo.ReadFile(filename,int64(info.Preamble.Runheader_addr32),hdr.Version,rh)
 		fmt.Println(rh.SampleInfo.ScanIndexAddress, rh.Scantrailer_addr32)
 	}
 }
