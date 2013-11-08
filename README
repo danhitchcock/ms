@@ -1,11 +1,13 @@
-//Package UnThermo, after unfinnigan http://code.google.com/p/unfinnigan/wiki/FileLayoutOverview
+//Package UnThermo
+//after unfinnigan http://code.google.com/p/unfinnigan/wiki/FileLayoutOverview
 
+//example use case:
 package main
 
 import (
-	"bitbucket.org/proteinspector/unthermo"
 	"flag"
 	"fmt"
+	"bitbucket.org/proteinspector/unthermo"
 )
 
 func main() {
