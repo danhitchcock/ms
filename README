@@ -14,20 +14,22 @@ func main() {
 	flag.Parse() // Scans the arg list and sets up flags.
 
 	for _, filename := range flag.Args() {
-		hdr:=new(unthermo.FileHeader)
+		hdr:= new(unthermo.FileHeader)
+		info:= new(unthermo.Info)
+		rh:= new(unthermo.RunHeader)
+		
+		//save position in file after reading, we need to sequentially
+		//read some things in order to get to actuall byte addresses
 		pos := unthermo.ReadFile(filename, 0, 0, hdr)
-		
-		fmt.Println("v", hdr.Version)
-		
 		pos = unthermo.ReadFile(filename, pos, hdr.Version,new(unthermo.SequencerRow))
 		pos = unthermo.ReadFile(filename, pos, 0, new(unthermo.AutoSamplerInfo))
+		unthermo.ReadFile(filename, pos, hdr.Version,info)
 
-		info:=new(unthermo.Info)
-		pos = unthermo.ReadFile(filename, pos, hdr.Version,info)
-		fmt.Println(info.Preamble.Runheader_addr32)
+		//here we finally have an address, let's read the RunHeader
+		unthermo.ReadFile(filename,int64(info.Preamble.Runheader_addr32),hdr.Version,rh)
 		
-		rh:=new(unthermo.RunHeader)
-		pos= unthermo.ReadFile(filename,int64(info.Preamble.Runheader_addr32),hdr.Version,rh)
+		//it gives us two interesting addresses
 		fmt.Println(rh.SampleInfo.ScanIndexAddress, rh.Scantrailer_addr32)
+		
 	}
 }
