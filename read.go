@@ -7,6 +7,12 @@ import (
 	"os"
 )
 
+
+type TrailerLength uint32;
+func (data* TrailerLength) Read(r io.Reader, v version) {
+	Read(r, data)
+}
+
 func Read(r io.Reader, data interface{}) {
 	switch v := data.(type) {
 	case *PascalString:
@@ -36,6 +42,54 @@ func ReadFile(fn string, pos int64, v version, data Reader) int64 {
 		log.Fatal(err)
 	}
 	return pos
+}
+
+func (data *ScanEventPreamble) Read(r io.Reader, v version) { 
+//128 bytes in v63 and up, 120 in v62, 80 in v57, 41 below that
+	switch {
+		case v<57:
+			*data = make([]uint8, 41)
+		case v>=57 && v<62:
+			*data = make([]uint8, 80)
+		case v>=62 && v<63:
+			*data = make([]uint8, 120)
+		case v>=63:
+			*data = make([]uint8, 128)
+	}
+	Read(r, data)
+}
+
+func (data *ScanEvent) Read(r io.Reader, v version) {
+	data.Preamble.Read(r,v)
+	Read(r, &data.Nprecursors)
+	
+	data.Reaction = make([]Reaction, data.Nprecursors)
+	for i := range data.Reaction {
+		Read(r, &data.Reaction[i])
+	}
+	
+	Read(r, &data.Unknown1)
+	Read(r, &data.MZrange)
+	Read(r, &data.Nparam)
+	
+	switch data.Nparam {
+		case 4:
+			Read(r, &data.Unknown2)
+			Read(r, &data.A)
+			Read(r, &data.B)
+			Read(r, &data.C)
+		case 7:
+			Read(r, &data.Unknown2)
+			Read(r, &data.I)
+			Read(r, &data.A)
+			Read(r, &data.B)
+			Read(r, &data.C)
+			Read(r, &data.D)
+			Read(r, &data.E)
+	}
+	
+	Read(r, &data.Unknown3)
+	Read(r, &data.Unknown4)
 }
 
 func (data *FileHeader) Read(r io.Reader, v version) {

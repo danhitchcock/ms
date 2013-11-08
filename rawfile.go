@@ -6,6 +6,43 @@ import (
 	"unicode/utf16"
 )
 
+type ScanEvent struct {
+	Preamble ScanEventPreamble
+	Nprecursors uint32
+	
+	Reaction []Reaction
+	
+	Unknown1 uint32
+	MZrange FractionCollector
+	Nparam uint32
+	
+	Unknown2 float64
+	A float64
+	B float64
+	C float64
+	D float64
+	E float64
+	I float64
+	
+	Unknown3 uint32
+	Unknown4 uint32
+}
+
+type Reaction struct {
+	Precursormz float64
+	Unknown1 float64
+	Energy float64
+	Unknown2 uint32
+	Unknown3 uint32
+}
+
+type FractionCollector struct {
+	Lowmz float64
+	Highmz float64
+}
+
+type ScanEventPreamble []uint8 //128 bytes in v63 and up, 120 in v62, 80 in v57, 41 below that
+
 type PacketHeader struct {
 	Unknown1            uint32
 	Profilesize         uint32
