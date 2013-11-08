@@ -7,6 +7,136 @@ import (
 	"os"
 )
 
+func ReadPacketHeader(fn string, pos int64, v version) (PacketHeader, int64) {
+	file, err := os.Open(fn)
+	pos, err = file.Seek(pos, 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	data := new(PacketHeader)
+	ThermoRead(file, data)
+
+	pos, err = file.Seek(0, 1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return *data, pos
+}
+
+func ReadScanIndexEntry(fn string, pos int64, v version) (ScanIndexEntry, int64) {
+	file, err := os.Open(fn)
+	pos, err = file.Seek(pos, 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	data := new(ScanIndexEntry)
+	if v >= 64 {
+		ThermoRead(file, data)
+	} else {
+		ThermoRead(file, &data.Offset32)
+		ThermoRead(file, &data.Index)
+		ThermoRead(file, &data.Scanevent)
+		ThermoRead(file, &data.Scansegment)
+		ThermoRead(file, &data.Next)
+		ThermoRead(file, &data.Unknown1)
+		ThermoRead(file, &data.Datasize)
+		ThermoRead(file, &data.Starttime)
+		ThermoRead(file, &data.Totalcurrent)
+		ThermoRead(file, &data.Baseintensity)
+		ThermoRead(file, &data.Basemz)
+		ThermoRead(file, &data.Lowmz)
+		ThermoRead(file, &data.Highmz)
+	}
+
+	pos, err = file.Seek(0, 1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return *data, pos
+}
+
+func ReadRunHeader(fn string, pos int64, v version) (RunHeader, int64) {
+	file, err := os.Open(fn)
+	pos, err = file.Seek(pos, 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	data := new(RunHeader)
+
+	ThermoRead(file, &data.SampleInfo)
+	ThermoRead(file, &data.Filename1)
+	ThermoRead(file, &data.Filename2)
+	ThermoRead(file, &data.Filename3)
+	ThermoRead(file, &data.Filename4)
+	ThermoRead(file, &data.Filename5)
+	ThermoRead(file, &data.Filename6)
+	ThermoRead(file, &data.Unknown1)
+	ThermoRead(file, &data.Unknown2)
+	ThermoRead(file, &data.Filename7)
+	ThermoRead(file, &data.Filename8)
+	ThermoRead(file, &data.Filename9)
+	ThermoRead(file, &data.Filename10)
+	ThermoRead(file, &data.Filename11)
+	ThermoRead(file, &data.Filename12)
+	ThermoRead(file, &data.Filename13)
+	ThermoRead(file, &data.Scantrailer_addr32)
+	ThermoRead(file, &data.Scanparams_addr32)
+	ThermoRead(file, &data.Unknown3)
+	ThermoRead(file, &data.Unknown4)
+	ThermoRead(file, &data.Nsegs)
+	ThermoRead(file, &data.Unknown5)
+	ThermoRead(file, &data.Unknown6)
+	ThermoRead(file, &data.Own_addr32)
+	ThermoRead(file, &data.Unknown7)
+	ThermoRead(file, &data.Unknown8)
+
+	if v >= 64 {
+		ThermoRead(file, &data.Scanindex_addr)
+		ThermoRead(file, &data.Data_addr)
+		ThermoRead(file, &data.Instlog_addr)
+		ThermoRead(file, &data.Errorlog_addr)
+		ThermoRead(file, &data.Unknown9)
+		ThermoRead(file, &data.Scantrailer_addr)
+		ThermoRead(file, &data.Scanparams_addr)
+		ThermoRead(file, &data.Unknown10)
+		ThermoRead(file, &data.Own_addr)
+
+		ThermoRead(file, &data.Unknown11)
+		ThermoRead(file, &data.Unknown12)
+		ThermoRead(file, &data.Unknown13)
+		ThermoRead(file, &data.Unknown14)
+		ThermoRead(file, &data.Unknown15)
+		ThermoRead(file, &data.Unknown16)
+		ThermoRead(file, &data.Unknown17)
+		ThermoRead(file, &data.Unknown18)
+		ThermoRead(file, &data.Unknown19)
+		ThermoRead(file, &data.Unknown20)
+		ThermoRead(file, &data.Unknown21)
+		ThermoRead(file, &data.Unknown22)
+		ThermoRead(file, &data.Unknown23)
+		ThermoRead(file, &data.Unknown24)
+		ThermoRead(file, &data.Unknown25)
+		ThermoRead(file, &data.Unknown26)
+		ThermoRead(file, &data.Unknown27)
+		ThermoRead(file, &data.Unknown28)
+		ThermoRead(file, &data.Unknown29)
+		ThermoRead(file, &data.Unknown30)
+		ThermoRead(file, &data.Unknown31)
+		ThermoRead(file, &data.Unknown32)
+		ThermoRead(file, &data.Unknown33)
+		ThermoRead(file, &data.Unknown34)
+	}
+
+	pos, err = file.Seek(0, 1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return *data, pos
+}
+
 func ThermoRead(r io.Reader, data interface{}) {
 	switch v := data.(type) {
 	case *PascalString:
@@ -29,7 +159,6 @@ func ReadInfo(fn string, pos int64, v version) (Info, int64) {
 
 	ThermoRead(file, &data.Preamble.Methodfilepresent)
 	ThermoRead(file, &data.Preamble.Year)
-
 	ThermoRead(file, &data.Preamble.Month)
 	ThermoRead(file, &data.Preamble.Weekday)
 	ThermoRead(file, &data.Preamble.Day)
@@ -67,7 +196,6 @@ func ReadInfo(fn string, pos int64, v version) (Info, int64) {
 		ThermoRead(file, &data.Preamble.Unknown9)
 	}
 
-	log.Print(2)
 	ThermoRead(file, &data.Heading1)
 	ThermoRead(file, &data.Heading2)
 	ThermoRead(file, &data.Heading3)
