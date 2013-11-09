@@ -7,9 +7,9 @@ import (
 	"os"
 )
 
+type TrailerLength uint32
 
-type TrailerLength uint32;
-func (data* TrailerLength) Read(r io.Reader, v version) {
+func (data *TrailerLength) Read(r io.Reader, v version) {
 	Read(r, data)
 }
 
@@ -46,80 +46,76 @@ func ReadFile(fn string, pos uint64, v version, data Reader) uint64 {
 	return uint64(spos)
 }
 
-
 func (data *ScanDataPacket) Read(r io.Reader, v version) {
 	Read(r, &data.Header)
-	
-	if data.Header.ProfileSize>0 {
-		Read(r,&data.Profile.FirstValue)
-		Read(r,&data.Profile.Step)
-		Read(r,&data.Profile.PeakCount)
-		Read(r,&data.Profile.Nbins)
-		
+
+	if data.Header.ProfileSize > 0 {
+		Read(r, &data.Profile.FirstValue)
+		Read(r, &data.Profile.Step)
+		Read(r, &data.Profile.PeakCount)
+		Read(r, &data.Profile.Nbins)
+
 		data.Profile.Chunks = make([]ProfileChunk, data.Profile.PeakCount)
-		for i:=range data.Profile.Chunks {
+		for i := range data.Profile.Chunks {
 			Read(r, &data.Profile.Chunks[i].Firstbin)
 			Read(r, &data.Profile.Chunks[i].Nbins)
 			if data.Header.Layout > 0 {
 				Read(r, &data.Profile.Chunks[i].Fudge)
 			}
 			data.Profile.Chunks[i].Signal = make([]float32, data.Profile.Chunks[i].Nbins)
-			for j:=range data.Profile.Chunks[i].Signal {
+			for j := range data.Profile.Chunks[i].Signal {
 				Read(r, &data.Profile.Chunks[i].Signal[j])
 			}
 		}
 	}
-	
-	if data.Header.PeaklistSize>0 {
+
+	if data.Header.PeaklistSize > 0 {
 		Read(r, &data.PeakList.Count)
 		data.PeakList.Peaks = make([]Peak, data.PeakList.Count)
-		for i:=range data.PeakList.Peaks {
+		for i := range data.PeakList.Peaks {
 			Read(r, &data.PeakList.Peaks[i])
 		}
 	}
 }
 
-
-
-
 func (data *ScanEvent) Read(r io.Reader, v version) {
 	switch {
-		case v<57:
-			Read(r, data.Preamble[:41])
-		case v>=57 && v<62:
-			Read(r, data.Preamble[:80])
-		case v>=62 && v<63:
-			Read(r, data.Preamble[:120])
+	case v < 57:
+		Read(r, data.Preamble[:41])
+	case v >= 57 && v < 62:
+		Read(r, data.Preamble[:80])
+	case v >= 62 && v < 63:
+		Read(r, data.Preamble[:120])
 	}
-	
+
 	Read(r, &data.Preamble)
 	Read(r, &data.Nprecursors)
-	
+
 	data.Reaction = make([]Reaction, data.Nprecursors)
 	for i := range data.Reaction {
 		Read(r, &data.Reaction[i])
 	}
-	
+
 	Read(r, &data.Unknown1)
 	Read(r, &data.MZrange)
 	Read(r, &data.Nparam)
-	
+
 	switch data.Nparam {
-		case 4:
-			Read(r, &data.Unknown2)
-			Read(r, &data.A)
-			Read(r, &data.B)
-			Read(r, &data.C)
-		case 7:
-			Read(r, &data.Unknown2)
-			Read(r, &data.I)
-			Read(r, &data.A)
-			Read(r, &data.B)
-			Read(r, &data.C)
-			Read(r, &data.D)
-			Read(r, &data.E)
+	case 4:
+		Read(r, &data.Unknown2)
+		Read(r, &data.A)
+		Read(r, &data.B)
+		Read(r, &data.C)
+	case 7:
+		Read(r, &data.Unknown2)
+		Read(r, &data.I)
+		Read(r, &data.A)
+		Read(r, &data.B)
+		Read(r, &data.C)
+		Read(r, &data.D)
+		Read(r, &data.E)
 	}
-	
+
 	Read(r, &data.Unknown3)
 	Read(r, &data.Unknown4)
 }
@@ -130,19 +126,19 @@ func (data *FileHeader) Read(r io.Reader, v version) {
 
 func (data ScanIndexEntry) Size(v version) uint64 {
 	switch {
-		case v<64:
-			return 72
-		case v==64:
-			return 80
-		default:
-			return 88
+	case v < 64:
+		return 72
+	case v == 64:
+		return 80
+	default:
+		return 88
 	}
 }
 
 func (data *ScanIndexEntry) Read(r io.Reader, v version) {
 	if v == 66 {
 		Read(r, data)
-	} else if v==64 {
+	} else if v == 64 {
 		Read(r, &data.Offset32)
 		Read(r, &data.Index)
 		Read(r, &data.Scanevent)
@@ -171,7 +167,7 @@ func (data *ScanIndexEntry) Read(r io.Reader, v version) {
 		Read(r, &data.Basemz)
 		Read(r, &data.Lowmz)
 		Read(r, &data.Highmz)
-		
+
 		data.Offset = uint64(data.Offset32)
 	}
 }
@@ -203,15 +199,14 @@ func (data *RunHeader) Read(r io.Reader, v version) {
 	Read(r, &data.OwnAddr32)
 	Read(r, &data.Unknown7)
 	Read(r, &data.Unknown8)
-	
-	
+
 	data.ScanindexAddr = uint64(data.SampleInfo.ScanindexAddr)
 	data.DataAddr = uint64(data.SampleInfo.DataAddr)
 	data.InstlogAddr = uint64(data.SampleInfo.InstlogAddr)
 	data.ErrorlogAddr = uint64(data.SampleInfo.ErrorlogAddr)
 	data.ScantrailerAddr = uint64(data.ScantrailerAddr32)
 	data.ScanparamsAddr = uint64(data.ScanparamsAddr32)
-	
+
 	if v >= 64 {
 		Read(r, &data.ScanindexAddr)
 		Read(r, &data.DataAddr)
@@ -274,7 +269,7 @@ func (data *Info) Read(r io.Reader, v version) {
 			Read(r, data.Preamble.Unknown6[:756])
 		}
 		Read(r, &data.Preamble.Unknown6)
-		
+
 		data.Preamble.RunHeaderAddr = uint64(data.Preamble.RunHeaderAddr32)
 	}
 	if v >= 64 {

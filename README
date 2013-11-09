@@ -5,9 +5,9 @@
 package main
 
 import (
+	"bitbucket.org/proteinspector/unthermo"
 	"flag"
 	"fmt"
-	"bitbucket.org/proteinspector/unthermo"
 )
 
 func main() {
@@ -15,42 +15,40 @@ func main() {
 	flag.Parse()
 
 	for _, filename := range flag.Args() {
-		hdr:= new(unthermo.FileHeader)
-		info:= new(unthermo.Info)
-		rh:= new(unthermo.RunHeader)
-		entry:= new(unthermo.ScanIndexEntry)
-		
+		hdr := new(unthermo.FileHeader)
+		info := new(unthermo.Info)
+		rh := new(unthermo.RunHeader)
+		entry := new(unthermo.ScanIndexEntry)
+
 		//save position in file after reading, we need to sequentially
 		//read some things in order to get to actuall byte addresses
 		pos := unthermo.ReadFile(filename, 0, 0, hdr)
-		ver:=hdr.Version
-		
+		ver := hdr.Version
+
 		pos = unthermo.ReadFile(filename, pos, ver, new(unthermo.SequencerRow))
 		pos = unthermo.ReadFile(filename, pos, 0, new(unthermo.AutoSamplerInfo))
-		unthermo.ReadFile(filename, pos, ver,info)
-		
-		
+		unthermo.ReadFile(filename, pos, ver, info)
+
 		//in info we finally have an address, let's read the RunHeader,
 		//it contains besides general info two interesting addresses:
 		//ScanindexAddr (with the scan headers) and ScantrailerAddr (with
 		// more info about the scans)
-		unthermo.ReadFile(filename,info.Preamble.RunHeaderAddr,ver,rh)
-		
+		unthermo.ReadFile(filename, info.Preamble.RunHeaderAddr, ver, rh)
 
 		//read the n'th ScanIndexEntry
-		unthermo.ReadFile(filename, rh.ScanindexAddr + (*n - 1) * entry.Size(ver), ver, entry)
-		
+		unthermo.ReadFile(filename, rh.ScanindexAddr+(*n-1)*entry.Size(ver), ver, entry)
+
 		/* For later conversion of frequency values to m/z
 		//the series of ScanEvents start an uint32 later than ScantrailerAddr
 		//the uint32 contains the length of the container, but we know the
 		//length already through SampleInfo
 		nScans := rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1
 		pos=rh.ScantrailerAddr + 4
-		
+
 		fmt.Println(nScans)//for fun
-		
+
 		//the ScanEvents are of variable size and have no pointer to
-		//them, we need to read all of them	
+		//them, we need to read all of them
 		for i:=uint32(1); i < nScans; i++ {
 			scanevent:=new(unthermo.ScanEvent)
 			pos=unthermo.ReadFile(filename, pos, ver, scanevent)
@@ -58,8 +56,8 @@ func main() {
 		*/
 
 		//read Scan Packet for the above entry
-		scan:=new(unthermo.ScanDataPacket)
-		unthermo.ReadFile(filename, rh.DataAddr + entry.Offset, 0, scan)
+		scan := new(unthermo.ScanDataPacket)
+		unthermo.ReadFile(filename, rh.DataAddr+entry.Offset, 0, scan)
 		fmt.Println(scan.Profile.Chunks[0].Signal)
 		fmt.Println(scan.PeakList.Peaks[0])
 	}

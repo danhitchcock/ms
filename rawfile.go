@@ -7,8 +7,8 @@ import (
 )
 
 type ScanDataPacket struct {
-	Header PacketHeader
-	Profile Profile
+	Header   PacketHeader
+	Profile  Profile
 	PeakList PeakList
 }
 
@@ -18,7 +18,7 @@ type PeakList struct {
 }
 
 type Peak struct {
-	Mz float32
+	Mz        float32
 	Abundance float32
 }
 
@@ -37,74 +37,73 @@ type PacketHeader struct {
 
 type Profile struct {
 	FirstValue float64
-	Step float64
-	PeakCount uint32
-	Nbins uint32
-	Chunks []ProfileChunk
+	Step       float64
+	PeakCount  uint32
+	Nbins      uint32
+	Chunks     []ProfileChunk
 }
 
 type ProfileChunk struct {
 	Firstbin uint32
-	Nbins uint32
-	Fudge float32
-	Signal []float32
+	Nbins    uint32
+	Fudge    float32
+	Signal   []float32
 }
 
-
 type ScanEvent struct {
-	Preamble ScanEventPreamble
+	Preamble    ScanEventPreamble
 	Nprecursors uint32
-	
+
 	Reaction []Reaction
-	
+
 	Unknown1 uint32
-	MZrange FractionCollector
-	Nparam uint32
-	
+	MZrange  FractionCollector
+	Nparam   uint32
+
 	Unknown2 float64
-	A float64
-	B float64
-	C float64
-	D float64
-	E float64
-	I float64
-	
+	A        float64
+	B        float64
+	C        float64
+	D        float64
+	E        float64
+	I        float64
+
 	Unknown3 uint32
 	Unknown4 uint32
 }
 
 type Reaction struct {
 	Precursormz float64
-	Unknown1 float64
-	Energy float64
-	Unknown2 uint32
-	Unknown3 uint32
+	Unknown1    float64
+	Energy      float64
+	Unknown2    uint32
+	Unknown3    uint32
 }
 
 type FractionCollector struct {
-	Lowmz float64
+	Lowmz  float64
 	Highmz float64
 }
 
 type ScanEventPreamble [128]uint8 //128 bytes in v63 and up, 120 in v62, 80 in v57, 41 below that
 
 type ScanIndexEntry struct {
-	Offset32      uint32
-	Index         uint32
-	Scanevent     uint16
-	Scansegment   uint16
-	Next          uint32
-	Unknown1      uint32
-	DataPacketSize      uint32
-	Starttime     float64
-	Totalcurrent  float64
-	Baseintensity float64
-	Basemz        float64
-	Lowmz         float64
-	Highmz        float64
-	Offset        uint64
-	Unknown2      uint32
-	Unknown3	  uint32
+	Offset32       uint32
+	Index          uint32
+	Scanevent      uint16
+	Scansegment    uint16
+	Next           uint32
+	Unknown1       uint32
+	DataPacketSize uint32
+	Starttime      float64
+	Totalcurrent   float64
+	Baseintensity  float64
+	Basemz         float64
+	Lowmz          float64
+	Highmz         float64
+	Offset         uint64
+	Unknown2       uint32
+	Unknown3       uint32
 }
 
 type filename [260]uint16
@@ -114,42 +113,42 @@ func (t filename) String() string {
 }
 
 type RunHeader struct {
-	SampleInfo         SampleInfo
-	Filename1          filename
-	Filename2          filename
-	Filename3          filename
-	Filename4          filename
-	Filename5          filename
-	Filename6          filename
-	Unknown1           float64
-	Unknown2           float64
-	Filename7          filename
-	Filename8          filename
-	Filename9          filename
-	Filename10         filename
-	Filename11         filename
-	Filename12         filename
-	Filename13         filename
+	SampleInfo        SampleInfo
+	Filename1         filename
+	Filename2         filename
+	Filename3         filename
+	Filename4         filename
+	Filename5         filename
+	Filename6         filename
+	Unknown1          float64
+	Unknown2          float64
+	Filename7         filename
+	Filename8         filename
+	Filename9         filename
+	Filename10        filename
+	Filename11        filename
+	Filename12        filename
+	Filename13        filename
 	ScantrailerAddr32 uint32
 	ScanparamsAddr32  uint32
-	Unknown3           uint32
-	Unknown4           uint32
-	Nsegs              uint32
-	Unknown5           uint32
-	Unknown6           uint32
+	Unknown3          uint32
+	Unknown4          uint32
+	Nsegs             uint32
+	Unknown5          uint32
+	Unknown6          uint32
 	OwnAddr32         uint32
-	Unknown7           uint32
-	Unknown8           uint32
+	Unknown7          uint32
+	Unknown8          uint32
 
 	ScanindexAddr   uint64
 	DataAddr        uint64
 	InstlogAddr     uint64
 	ErrorlogAddr    uint64
-	Unknown9         uint64
+	Unknown9        uint64
 	ScantrailerAddr uint64
 	ScanparamsAddr  uint64
-	Unknown10        uint32
-	Unknown11		uint32
+	Unknown10       uint32
+	Unknown11       uint32
 	OwnAddr         uint64
 
 	Unknown12 uint32
@@ -179,27 +178,27 @@ type RunHeader struct {
 }
 
 type SampleInfo struct {
-	Unknown1         uint32
-	Unknown2         uint32
-	FirstScanNumber  uint32
-	LastScanNumber   uint32
-	InstlogLength    uint32
-	Unknown3         uint32
-	Unknown4         uint32
-	ScanindexAddr uint32 //unused in 64-bit versions
-	DataAddr      uint32
-	InstlogAddr   uint32
-	ErrorlogAddr  uint32
-	Unknown5         uint32
-	MaxIonCurrent    float64
-	Lowmz            float64
-	Highmz           float64
-	Starttime        float64
-	Endtime          float64
-	Unknown6         [56]byte
-	Tag1             [44]uint16
-	Tag2             [20]uint16
-	Tag3             [160]uint16
+	Unknown1        uint32
+	Unknown2        uint32
+	FirstScanNumber uint32
+	LastScanNumber  uint32
+	InstlogLength   uint32
+	Unknown3        uint32
+	Unknown4        uint32
+	ScanindexAddr   uint32 //unused in 64-bit versions
+	DataAddr        uint32
+	InstlogAddr     uint32
+	ErrorlogAddr    uint32
+	Unknown5        uint32
+	MaxIonCurrent   float64
+	Lowmz           float64
+	Highmz          float64
+	Starttime       float64
+	Endtime         float64
+	Unknown6        [56]byte
+	Tag1            [44]uint16
+	Tag2            [20]uint16
+	Tag3            [160]uint16
 }
 
 type AutoSamplerInfo struct {
@@ -296,20 +295,20 @@ type InfoPreamble struct {
 	Second            uint16
 	Millisecond       uint16
 
-	Unknown1         uint32
+	Unknown1        uint32
 	DataAddr32      uint32
-	Unknown2         uint32
-	Unknown3         uint32
-	Unknown4         uint32
-	Unknown5         uint32
+	Unknown2        uint32
+	Unknown3        uint32
+	Unknown4        uint32
+	Unknown5        uint32
 	RunHeaderAddr32 uint32
-	Unknown6         [760]byte //760 bytes, 756 bytes in v57
+	Unknown6        [760]byte //760 bytes, 756 bytes in v57
 
 	DataAddr      uint64
-	Unknown7       uint32
-	Unknown8       uint32
+	Unknown7      uint32
+	Unknown8      uint32
 	RunHeaderAddr uint64
-	Unknown9       [1024]byte //1024 bytes, 1008 bytes in v64
+	Unknown9      [1024]byte //1024 bytes, 1008 bytes in v64
 }
 
 type headertag [514]uint16
