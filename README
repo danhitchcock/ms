@@ -11,57 +11,56 @@ import (
 )
 
 func main() {
-	flag.Parse() // Scans the arg list and sets up flags.
+	n := flag.Uint64("scan", 1, "the scan number")
+	flag.Parse()
 
 	for _, filename := range flag.Args() {
 		hdr:= new(unthermo.FileHeader)
 		info:= new(unthermo.Info)
 		rh:= new(unthermo.RunHeader)
 		entry:= new(unthermo.ScanIndexEntry)
-		ph:=new(unthermo.PacketHeader)
 		
 		//save position in file after reading, we need to sequentially
 		//read some things in order to get to actuall byte addresses
 		pos := unthermo.ReadFile(filename, 0, 0, hdr)
 		ver:=hdr.Version
 		
-		pos = unthermo.ReadFile(filename, pos, ver,new(unthermo.SequencerRow))
+		pos = unthermo.ReadFile(filename, pos, ver, new(unthermo.SequencerRow))
 		pos = unthermo.ReadFile(filename, pos, 0, new(unthermo.AutoSamplerInfo))
 		unthermo.ReadFile(filename, pos, ver,info)
-
-		//here we finally have an address, let's read the RunHeader
-		unthermo.ReadFile(filename,int64(info.Preamble.Runheader_addr32),ver,rh)
-		
-		//it gives us two interesting addresses
-		fmt.Println(rh.SampleInfo.ScanIndexAddress, rh.Scantrailer_addr32)
 		
 		
-		unthermo.ReadFile(filename, int64(rh.SampleInfo.ScanIndexAddress), ver, entry)
-		fmt.Println(entry.Datasize)
+		//in info we finally have an address, let's read the RunHeader,
+		//it contains besides general info two interesting addresses:
+		//ScanindexAddr (with the scan headers) and ScantrailerAddr (with
+		// more info about the scans)
+		unthermo.ReadFile(filename,info.Preamble.RunHeaderAddr,ver,rh)
 		
 
-		//the ScanEvents start or right at the address, or 4 bytes later
-		//find the number of them (they are contained in a Trailer
-		//with a certain length)
-		tl := new(unthermo.TrailerLength)
+		//read the n'th ScanIndexEntry
+		unthermo.ReadFile(filename, rh.ScanindexAddr + (*n - 1) * entry.Size(ver), ver, entry)
 		
-		sepos := unthermo.ReadFile(filename, int64(rh.Scantrailer_addr32), 0, tl)
-		if *tl == 0 {
-			sepos=int64(rh.Scantrailer_addr32)
-			*tl = unthermo.TrailerLength(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
-		}
+		/* For later conversion of frequency values to m/z
+		//the series of ScanEvents start an uint32 later than ScantrailerAddr
+		//the uint32 contains the length of the container, but we know the
+		//length already through SampleInfo
+		nScans := rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1
+		pos=rh.ScantrailerAddr + 4
 		
-		fmt.Println(sepos)
+		fmt.Println(nScans)//for fun
+		
 		//the ScanEvents are of variable size and have no pointer to
 		//them, we need to read all of them	
-		for i:=1; i<int(*tl); i++ {
+		for i:=uint32(1); i < nScans; i++ {
 			scanevent:=new(unthermo.ScanEvent)
-			unthermo.ReadFile(filename, sepos, ver, scanevent)
+			pos=unthermo.ReadFile(filename, pos, ver, scanevent)
 		}
-		
-		//read PacketHeader from start of Scan Data
-		unthermo.ReadFile(filename, int64(info.Preamble.Runheader_addr32 + entry.Offset32), 0, ph)
-		fmt.Println(ph.Peaklistsize)
-		
+		*/
+
+		//read Scan Packet for the above entry
+		scan:=new(unthermo.ScanDataPacket)
+		unthermo.ReadFile(filename, rh.DataAddr + entry.Offset, 0, scan)
+		fmt.Println(scan.Profile.Chunks[0].Signal)
+		fmt.Println(scan.PeakList.Peaks[0])
 	}
 }

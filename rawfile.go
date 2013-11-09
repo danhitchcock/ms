@@ -6,6 +6,51 @@ import (
 	"unicode/utf16"
 )
 
+type ScanDataPacket struct {
+	Header PacketHeader
+	Profile Profile
+	PeakList PeakList
+}
+
+type PeakList struct {
+	Count uint32
+	Peaks []Peak
+}
+
+type Peak struct {
+	Mz float32
+	Abundance float32
+}
+
+type PacketHeader struct {
+	Unknown1            uint32
+	ProfileSize         uint32
+	PeaklistSize        uint32
+	Layout              uint32
+	Descriptorlistsize  uint32
+	Sizeofunknownstream uint32
+	Sizeoftripletstream uint32
+	Unknown2            uint32
+	Lowmz               float32
+	Highmz              float32
+}
+
+type Profile struct {
+	FirstValue float64
+	Step float64
+	PeakCount uint32
+	Nbins uint32
+	Chunks []ProfileChunk
+}
+
+type ProfileChunk struct {
+	Firstbin uint32
+	Nbins uint32
+	Fudge float32
+	Signal []float32
+}
+
+
 type ScanEvent struct {
 	Preamble ScanEventPreamble
 	Nprecursors uint32
@@ -41,29 +86,16 @@ type FractionCollector struct {
 	Highmz float64
 }
 
-type ScanEventPreamble []uint8 //128 bytes in v63 and up, 120 in v62, 80 in v57, 41 below that
-
-type PacketHeader struct {
-	Unknown1            uint32
-	Profilesize         uint32
-	Peaklistsize        uint32
-	Layout              uint32
-	Descriptorlistsize  uint32
-	Sizeofunknownstream uint32
-	Sizeoftripletstream uint32
-	Unknown2            uint32
-	Lowmz               float32
-	Highmz              float32
-}
+type ScanEventPreamble [128]uint8 //128 bytes in v63 and up, 120 in v62, 80 in v57, 41 below that
 
 type ScanIndexEntry struct {
 	Offset32      uint32
-	Index         uint16
+	Index         uint32
 	Scanevent     uint16
 	Scansegment   uint16
 	Next          uint32
 	Unknown1      uint32
-	Datasize      uint32
+	DataPacketSize      uint32
 	Starttime     float64
 	Totalcurrent  float64
 	Baseintensity float64
@@ -71,6 +103,8 @@ type ScanIndexEntry struct {
 	Lowmz         float64
 	Highmz        float64
 	Offset        uint64
+	Unknown2      uint32
+	Unknown3	  uint32
 }
 
 type filename [260]uint16
@@ -96,28 +130,28 @@ type RunHeader struct {
 	Filename11         filename
 	Filename12         filename
 	Filename13         filename
-	Scantrailer_addr32 uint32
-	Scanparams_addr32  uint32
+	ScantrailerAddr32 uint32
+	ScanparamsAddr32  uint32
 	Unknown3           uint32
 	Unknown4           uint32
 	Nsegs              uint32
 	Unknown5           uint32
 	Unknown6           uint32
-	Own_addr32         uint32
+	OwnAddr32         uint32
 	Unknown7           uint32
 	Unknown8           uint32
 
-	Scanindex_addr   uint64
-	Data_addr        uint64
-	Instlog_addr     uint64
-	Errorlog_addr    uint64
+	ScanindexAddr   uint64
+	DataAddr        uint64
+	InstlogAddr     uint64
+	ErrorlogAddr    uint64
 	Unknown9         uint64
-	Scantrailer_addr uint64
-	Scanparams_addr  uint64
-	Unknown10        uint64
-	Own_addr         uint64
+	ScantrailerAddr uint64
+	ScanparamsAddr  uint64
+	Unknown10        uint32
+	Unknown11		uint32
+	OwnAddr         uint64
 
-	Unknown11 uint32
 	Unknown12 uint32
 	Unknown13 uint32
 	Unknown14 uint32
@@ -141,6 +175,7 @@ type RunHeader struct {
 	Unknown32 uint32
 	Unknown33 uint32
 	Unknown34 uint32
+	Unknown35 uint32
 }
 
 type SampleInfo struct {
@@ -148,13 +183,13 @@ type SampleInfo struct {
 	Unknown2         uint32
 	FirstScanNumber  uint32
 	LastScanNumber   uint32
-	InstLogLength    uint32
+	InstlogLength    uint32
 	Unknown3         uint32
 	Unknown4         uint32
-	ScanIndexAddress uint32
-	DataAddress      uint32
-	InstLogAddress   uint32
-	ErrorLogAddress  uint32
+	ScanindexAddr uint32 //unused in 64-bit versions
+	DataAddr      uint32
+	InstlogAddr   uint32
+	ErrorlogAddr  uint32
 	Unknown5         uint32
 	MaxIonCurrent    float64
 	Lowmz            float64
@@ -262,19 +297,19 @@ type InfoPreamble struct {
 	Millisecond       uint16
 
 	Unknown1         uint32
-	Data_addr32      uint32
+	DataAddr32      uint32
 	Unknown2         uint32
 	Unknown3         uint32
 	Unknown4         uint32
 	Unknown5         uint32
-	Runheader_addr32 uint32
-	Unknown6         []byte //760 bytes, 756 bytes in v57
+	RunHeaderAddr32 uint32
+	Unknown6         [760]byte //760 bytes, 756 bytes in v57
 
-	Data_addr      uint64
+	DataAddr      uint64
 	Unknown7       uint32
 	Unknown8       uint32
-	Runheader_addr uint64
-	Unknown9       []byte //1024 bytes, 1008 bytes in v64
+	RunHeaderAddr uint64
+	Unknown9       [1024]byte //1024 bytes, 1008 bytes in v64
 }
 
 type headertag [514]uint16
