@@ -8,17 +8,18 @@ import (
 	"bitbucket.org/proteinspector/unthermo"
 	"flag"
 	"fmt"
+	"log"
+//	"sort"
 )
 
 func main() {
-	n := flag.Uint64("scan", 1, "the scan number")
+	n := flag.Uint64("scan", 0, "the scan number")
 	flag.Parse()
 
 	for _, filename := range flag.Args() {
 		hdr := new(unthermo.FileHeader)
 		info := new(unthermo.Info)
 		rh := new(unthermo.RunHeader)
-		entry := new(unthermo.ScanIndexEntry)
 
 		//save position in file after reading, we need to sequentially
 		//read some things in order to get to actuall byte addresses
@@ -35,30 +36,56 @@ func main() {
 		//includes orbitrap Hz-m/z conversion parameters and info about the scans)
 		unthermo.ReadFile(filename, info.Preamble.RunHeaderAddr, ver, rh)
 
-		//read the n'th ScanIndexEntry
-		unthermo.ReadFile(filename, rh.ScanindexAddr+(*n-1)*entry.Size(ver), ver, entry)
+		//first we read the n'th ScanIndexEntry, but why not read all
+		//unthermo.ReadFile(filename, rh.ScanindexAddr+(*n-1)*entry.Size(ver), ver, entry)
+		nScans := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
+		scanindexentries := make([]unthermo.ScanIndexEntry, nScans)
+		for i := range scanindexentries {
+			unthermo.ReadFile(filename, rh.ScanindexAddr+uint64(i)*scanindexentries[i].Size(ver), ver, &scanindexentries[i])
+		}
 
-		/* For later conversion of frequency values to m/z
-		//the series of ScanEvents start an uint32 later than ScantrailerAddr
-		//the uint32 contains the length of the container, but we know the
-		//length already through SampleInfo
-		nScans := rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1
-		pos=rh.ScantrailerAddr + 4
-
-		fmt.Println(nScans)//for fun
+		//For later conversion of frequency values to m/z, we need a ScanEvent
+		//The list of them starts an uint32 later than ScantrailerAddr
+		//the uint32 contains the number of ScanEvents, but we know this
+		//already through SampleInfo
+		pos = rh.ScantrailerAddr + 4
 
 		//the ScanEvents are of variable size and have no pointer to
-		//them, we need to read all of them
-		for i:=uint32(1); i < nScans; i++ {
-			scanevent:=new(unthermo.ScanEvent)
-			pos=unthermo.ReadFile(filename, pos, ver, scanevent)
+		//them, we need to read at least all the ones preceding n
+		//but as on modern systems we have enough memory, we read them all
+		scanevents := make([]unthermo.ScanEvent, nScans)
+		for i := range scanevents {
+			pos = unthermo.ReadFile(filename, pos, ver, &scanevents[i])
 		}
-		*/
 
-		//read Scan Packet for the above entry
-		scan := new(unthermo.ScanDataPacket)
-		unthermo.ReadFile(filename, rh.DataAddr+entry.Offset, 0, scan)
-		fmt.Println(scan.Profile.Chunks[0].Signal)
-		fmt.Println(scan.PeakList.Peaks[0])
+		if *n > 0 {
+			if *n < uint64(rh.SampleInfo.FirstScanNumber) || *n > uint64(rh.SampleInfo.LastScanNumber) {
+				log.Fatal("scan number out of range: ", rh.SampleInfo.FirstScanNumber, ", ", rh.SampleInfo.LastScanNumber)
+			}
+			scanindexentries = scanindexentries[*n-1 : *n]
+			scanevents = scanevents[*n-1 : *n]
+		}
+
+		m := make(map[float64]float32)
+		for s := range scanindexentries {
+			//read Scan Packet for the above scan number
+			scan := new(unthermo.ScanDataPacket)
+			unthermo.ReadFile(filename, rh.DataAddr+scanindexentries[s].Offset, 0, scan)
+
+			//convert the Hz values into m/z and list the signals
+			for i := uint32(0); i < scan.Profile.PeakCount; i++ {
+				for j := uint32(0); j < scan.Profile.Chunks[i].Nbins; j++ {
+					m[scanevents[s].Convert(scan.Profile.FirstValue+float64(scan.Profile.Chunks[i].Firstbin+j)*scan.Profile.Step)+float64(scan.Profile.Chunks[i].Fudge)] += scan.Profile.Chunks[i].Signal[j]
+					fmt.Println(scanevents[s].Convert(scan.Profile.FirstValue+float64(scan.Profile.Chunks[i].Firstbin+j)*scan.Profile.Step)+float64(scan.Profile.Chunks[i].Fudge), scan.Profile.Chunks[i].Signal[j])
+				}
+			}
+		}
+//		fmt.Println(len(m))
+//		var keys []float64
+//		for k := range m {
+//			keys = append(keys, k)
+//		}
+//		sort.Float64s(keys)
+//		fmt.Println(keys[0], keys[len(keys)-1])
 	}
 }

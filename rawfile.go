@@ -85,7 +85,7 @@ type FractionCollector struct {
 	Highmz float64
 }
 
-type ScanEventPreamble [128]uint8 //128 bytes in v63 and up, 120 in v62, 80 in v57, 41 below that
+type ScanEventPreamble [136]uint8 //128 bytes in v63 and up, 120 in v62, 80 in v57, 41 below that
 
 type ScanIndexEntry struct {
 	Offset32       uint32

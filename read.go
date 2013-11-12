@@ -7,12 +7,6 @@ import (
 	"os"
 )
 
-type TrailerLength uint32
-
-func (data *TrailerLength) Read(r io.Reader, v version) {
-	Read(r, data)
-}
-
 func Read(r io.Reader, data interface{}) {
 	switch v := data.(type) {
 	case *PascalString:
@@ -44,6 +38,23 @@ func ReadFile(fn string, pos uint64, v version, data Reader) uint64 {
 		log.Fatal(err)
 	}
 	return uint64(spos)
+}
+
+func (data ScanEvent) Convert(v float64) float64 {
+	switch data.Nparam {
+		case 4:
+			return data.A + data.B/v + data.C/v/v
+		case 5, 7:
+			return data.A + data.B/v/v + data.C/v/v/v/v
+		default:
+			return v
+	}
+}
+
+type TrailerLength uint32
+
+func (data *TrailerLength) Read(r io.Reader, v version) {
+	Read(r, data)
 }
 
 func (data *ScanDataPacket) Read(r io.Reader, v version) {
@@ -86,9 +97,12 @@ func (data *ScanEvent) Read(r io.Reader, v version) {
 		Read(r, data.Preamble[:80])
 	case v >= 62 && v < 63:
 		Read(r, data.Preamble[:120])
+	case v>=63 && v<66:
+		Read(r, data.Preamble[:128])
+	default:
+		Read(r, &data.Preamble)
 	}
 
-	Read(r, &data.Preamble)
 	Read(r, &data.Nprecursors)
 
 	data.Reaction = make([]Reaction, data.Nprecursors)
