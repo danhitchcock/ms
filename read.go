@@ -148,11 +148,35 @@ func (data *CDataPacket) Read(r io.Reader, v version) {
 }
 
 func (data CIndexEntry) Size(v version) uint64 {
-	return 64
+	switch {
+	case v < 64:
+		return 64
+	default:
+		return 72
+	}
 }
 
 func (data *CIndexEntry) Read(r io.Reader, v version) {
-	Read(r, data)
+	switch {
+	case v < 64:
+		Read(r, &data.Offset32)
+		Read(r, &data.Index)
+		Read(r, &data.Event)
+		Read(r, &data.Unknown1)
+		Read(r, &data.Unknown2)
+		Read(r, &data.Unknown3)
+		Read(r, &data.Unknown4)
+		Read(r, &data.Unknown5)
+		Read(r, &data.Time)
+		Read(r, &data.Unknown6)
+		Read(r, &data.Unknown7)
+		Read(r, &data.Value)
+
+		data.Offset = uint64(data.Offset32)
+	default:
+		Read(r, data)
+	}
+
 }
 
 func (data ScanIndexEntry) Size(v version) uint64 {
@@ -177,7 +201,7 @@ func (data *ScanIndexEntry) Read(r io.Reader, v version) {
 		Read(r, &data.Next)
 		Read(r, &data.Unknown1)
 		Read(r, &data.DataPacketSize)
-		Read(r, &data.Starttime)
+		Read(r, &data.ScanTime)
 		Read(r, &data.Totalcurrent)
 		Read(r, &data.Baseintensity)
 		Read(r, &data.Basemz)
@@ -192,7 +216,7 @@ func (data *ScanIndexEntry) Read(r io.Reader, v version) {
 		Read(r, &data.Next)
 		Read(r, &data.Unknown1)
 		Read(r, &data.DataPacketSize)
-		Read(r, &data.Starttime)
+		Read(r, &data.ScanTime)
 		Read(r, &data.Totalcurrent)
 		Read(r, &data.Baseintensity)
 		Read(r, &data.Basemz)

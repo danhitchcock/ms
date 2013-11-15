@@ -95,7 +95,7 @@ type ScanIndexEntry struct {
 	Next           uint32
 	Unknown1       uint32
 	DataPacketSize uint32
-	Starttime      float64
+	ScanTime       float64
 	Totalcurrent   float64
 	Baseintensity  float64
 	Basemz         float64
@@ -119,6 +119,8 @@ type CIndexEntry struct {
 	Unknown6 float64
 	Unknown7 float64
 	Value    float64
+
+	Offset uint64
 }
 
 type CDataPacket struct { //unused at the moment

@@ -14,16 +14,24 @@ import (
 
 func main() {
 	var sn uint64
+	var instr int
 	flag.Uint64Var(&sn, "scan", 0, "the scan number")
+	flag.IntVar(&instr, "instr", 0, "the instrument number")
 	flag.Parse()
 
-	for _, filename := range flag.Args() {
-		PrintOther(filename, 1)
+	for _, fn := range flag.Args() {
+		if sn > 0 {
+			PrintScan(fn, sn)
+		} else if instr > 0 {
+			PrintOther(fn, instr)
+		} else {
+			Filter(fn)
+		}
+
 	}
 }
 
-func PrintScan(filename string, sn uint64) {
-
+func PrintScan(fn string, sn uint64) {
 	hdr := new(unthermo.FileHeader)
 	info := new(unthermo.RawFileInfo)
 	rh := new(unthermo.RunHeader)
@@ -31,25 +39,25 @@ func PrintScan(filename string, sn uint64) {
 
 	//save position in file after reading, we need to sequentially
 	//read some things in order to get to actuall byte addresses
-	pos := unthermo.ReadFile(filename, 0, 0, hdr)
+	pos := unthermo.ReadFile(fn, 0, 0, hdr)
 	ver := hdr.Version
 
-	pos = unthermo.ReadFile(filename, pos, ver, new(unthermo.SequencerRow))
-	pos = unthermo.ReadFile(filename, pos, 0, new(unthermo.AutoSamplerInfo))
-	unthermo.ReadFile(filename, pos, ver, info)
+	pos = unthermo.ReadFile(fn, pos, ver, new(unthermo.SequencerRow))
+	pos = unthermo.ReadFile(fn, pos, 0, new(unthermo.AutoSamplerInfo))
+	unthermo.ReadFile(fn, pos, ver, info)
 
 	//in info we finally have an address, let's read the MS RunHeader,
 	//it contains besides general info two interesting addresses:
 	//ScanindexAddr (with the scan headers) and ScantrailerAddr (which
 	//includes orbitrap Hz-m/z conversion parameters and info about the scans)
-	unthermo.ReadFile(filename, info.Preamble.RunHeaderAddr[0], ver, rh)
+	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
 
 	if sn < uint64(rh.SampleInfo.FirstScanNumber) || sn > uint64(rh.SampleInfo.LastScanNumber) {
 		log.Fatal("scan number out of range: ", rh.SampleInfo.FirstScanNumber, ", ", rh.SampleInfo.LastScanNumber)
 	}
 
 	//we can read the n'th ScanIndexEntry
-	unthermo.ReadFile(filename, rh.ScanindexAddr+(sn-1)*sie.Size(ver), ver, sie)
+	unthermo.ReadFile(fn, rh.ScanindexAddr+(sn-1)*sie.Size(ver), ver, sie)
 
 	//For later conversion of frequency values to m/z, we need a ScanEvent
 	//The list of them starts an uint32 later than ScantrailerAddr
@@ -62,12 +70,12 @@ func PrintScan(filename string, sn uint64) {
 	//but as on modern systems we have enough memory, we read them all
 	scanevent := new(unthermo.ScanEvent)
 	for i := uint64(0); i < sn; i++ {
-		pos = unthermo.ReadFile(filename, pos, ver, scanevent)
+		pos = unthermo.ReadFile(fn, pos, ver, scanevent)
 	}
 
 	//read Scan Packet for the above scan number
 	scan := new(unthermo.ScanDataPacket)
-	unthermo.ReadFile(filename, rh.DataAddr+sie.Offset, 0, scan)
+	unthermo.ReadFile(fn, rh.DataAddr+sie.Offset, 0, scan)
 
 	//convert the Hz values into m/z and list the signals
 	for i := uint32(0); i < scan.Profile.PeakCount; i++ {
@@ -77,31 +85,31 @@ func PrintScan(filename string, sn uint64) {
 	}
 }
 
-func PrintAllScans(filename string) {
+func PrintAllScans(fn string) {
 	hdr := new(unthermo.FileHeader)
 	info := new(unthermo.RawFileInfo)
 	rh := new(unthermo.RunHeader)
 
 	//save position in file after reading, we need to sequentially
 	//read some things in order to get to actuall byte addresses
-	pos := unthermo.ReadFile(filename, 0, 0, hdr)
+	pos := unthermo.ReadFile(fn, 0, 0, hdr)
 	ver := hdr.Version
 
-	pos = unthermo.ReadFile(filename, pos, ver, new(unthermo.SequencerRow))
-	pos = unthermo.ReadFile(filename, pos, 0, new(unthermo.AutoSamplerInfo))
-	unthermo.ReadFile(filename, pos, ver, info)
+	pos = unthermo.ReadFile(fn, pos, ver, new(unthermo.SequencerRow))
+	pos = unthermo.ReadFile(fn, pos, 0, new(unthermo.AutoSamplerInfo))
+	unthermo.ReadFile(fn, pos, ver, info)
 
 	//in info we finally have an address, let's read the MS RunHeader,
 	//it contains besides general info two interesting addresses:
 	//ScanindexAddr (with the scan headers) and ScantrailerAddr (which
 	//includes orbitrap Hz-m/z conversion parameters and info about the scans)
-	unthermo.ReadFile(filename, info.Preamble.RunHeaderAddr[0], ver, rh)
+	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
 
 	//read all scanindexentries
 	nScans := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
 	scanindexentries := make([]unthermo.ScanIndexEntry, nScans)
 	for i := range scanindexentries {
-		unthermo.ReadFile(filename, rh.ScanindexAddr+uint64(i)*scanindexentries[i].Size(ver), ver, &scanindexentries[i])
+		unthermo.ReadFile(fn, rh.ScanindexAddr+uint64(i)*scanindexentries[i].Size(ver), ver, &scanindexentries[i])
 	}
 
 	//For later conversion of frequency values to m/z, we need a ScanEvent
@@ -115,13 +123,13 @@ func PrintAllScans(filename string) {
 	//but as on modern systems we have enough memory, we read them all
 	scanevents := make([]unthermo.ScanEvent, nScans)
 	for i := range scanevents {
-		pos = unthermo.ReadFile(filename, pos, ver, &scanevents[i])
+		pos = unthermo.ReadFile(fn, pos, ver, &scanevents[i])
 	}
 
 	for s := range scanindexentries {
-		//read Scan Packet for the above scan number
+		//read ScanDataPacket
 		scan := new(unthermo.ScanDataPacket)
-		unthermo.ReadFile(filename, rh.DataAddr+scanindexentries[s].Offset, 0, scan)
+		unthermo.ReadFile(fn, rh.DataAddr+scanindexentries[s].Offset, 0, scan)
 
 		//convert the Hz values into m/z and list the signals
 		for i := uint32(0); i < scan.Profile.PeakCount; i++ {
@@ -133,7 +141,7 @@ func PrintAllScans(filename string) {
 
 }
 
-func PrintOther(filename string, instrument int) {
+func PrintOther(fn string, instr int) {
 
 	hdr := new(unthermo.FileHeader)
 	info := new(unthermo.RawFileInfo)
@@ -141,29 +149,31 @@ func PrintOther(filename string, instrument int) {
 
 	//save position in file after reading, we need to sequentially
 	//read some things in order to get to actuall byte addresses
-	pos := unthermo.ReadFile(filename, 0, 0, hdr)
+	pos := unthermo.ReadFile(fn, 0, 0, hdr)
 	ver := hdr.Version
 
-	pos = unthermo.ReadFile(filename, pos, ver, new(unthermo.SequencerRow))
-	pos = unthermo.ReadFile(filename, pos, 0, new(unthermo.AutoSamplerInfo))
-	unthermo.ReadFile(filename, pos, ver, info)
+	pos = unthermo.ReadFile(fn, pos, ver, new(unthermo.SequencerRow))
+	pos = unthermo.ReadFile(fn, pos, 0, new(unthermo.AutoSamplerInfo))
+	unthermo.ReadFile(fn, pos, ver, info)
 
 	//in info we finally have an address, let's read the RunHeader,
-	//it contains an interesting address: ScanIndexAddr
-	//There is another address DataAddr, which points to the data alone,
-	//but the same information is contained in the CIndexEntry containers
-	//at ScanIndexAddr
-	unthermo.ReadFile(filename, info.Preamble.RunHeaderAddr[instrument], ver, rh)
+	//it contains an interesting address: DataAddr
+	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[instr], ver, rh)
 
 	nScan := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
-	cindexentries := make([]unthermo.CIndexEntry, nScan)
-	for i := range cindexentries {
-		unthermo.ReadFile(filename, rh.ScanindexAddr+uint64(i)*cindexentries[i].Size(ver), ver, &cindexentries[i])
+
+	//There is another address ScanIndexAddr, which points to CIndexEntry
+	//containers at ScanIndexAddr. Less data can be read for now
+	//cindexentries := make([]unthermo.CIndexEntry, nScan)
+	for i := uint64(1); i < nScan; i++ {
+		cdata := new(unthermo.CDataPacket)
+		//unthermo.ReadFile(fn, rh.ScanindexAddr+uint64(i)*cindexentries[i].Size(ver), ver, &cindexentries[i])
+		unthermo.ReadFile(fn, rh.DataAddr+i*16, ver, cdata)
+		fmt.Println(cdata.Time, cdata.Value)
 	}
-	fmt.Println(cindexentries[:10])
 }
 
-func Filter(filename string) {
+func Filter(fn string) {
 
 	hdr := new(unthermo.FileHeader)
 	info := new(unthermo.RawFileInfo)
@@ -171,24 +181,24 @@ func Filter(filename string) {
 
 	//save position in file after reading, we need to sequentially
 	//read some things in order to get to actuall byte addresses
-	pos := unthermo.ReadFile(filename, 0, 0, hdr)
+	pos := unthermo.ReadFile(fn, 0, 0, hdr)
 	ver := hdr.Version
 
-	pos = unthermo.ReadFile(filename, pos, ver, new(unthermo.SequencerRow))
-	pos = unthermo.ReadFile(filename, pos, 0, new(unthermo.AutoSamplerInfo))
-	unthermo.ReadFile(filename, pos, ver, info)
+	pos = unthermo.ReadFile(fn, pos, ver, new(unthermo.SequencerRow))
+	pos = unthermo.ReadFile(fn, pos, 0, new(unthermo.AutoSamplerInfo))
+	unthermo.ReadFile(fn, pos, ver, info)
 
 	//in info we finally have an address, let's read the MS RunHeader,
 	//it contains besides general info two interesting addresses:
 	//ScanindexAddr (with the scan headers) and ScantrailerAddr (which
 	//includes orbitrap Hz-m/z conversion parameters and info about the scans)
-	unthermo.ReadFile(filename, info.Preamble.RunHeaderAddr[0], ver, rh)
+	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
 
 	//read all Scan Index Entries
 	nScans := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
 	scanindexentries := make([]unthermo.ScanIndexEntry, nScans)
 	for i := range scanindexentries {
-		unthermo.ReadFile(filename, rh.ScanindexAddr+uint64(i)*scanindexentries[i].Size(ver), ver, &scanindexentries[i])
+		unthermo.ReadFile(fn, rh.ScanindexAddr+uint64(i)*scanindexentries[i].Size(ver), ver, &scanindexentries[i])
 	}
 
 	//For later conversion of frequency values to m/z, we need a ScanEvent
@@ -202,14 +212,14 @@ func Filter(filename string) {
 	//but as on modern systems we have enough memory, we read them all
 	scanevents := make([]unthermo.ScanEvent, nScans)
 	for i := range scanevents {
-		pos = unthermo.ReadFile(filename, pos, ver, &scanevents[i])
+		pos = unthermo.ReadFile(fn, pos, ver, &scanevents[i])
 	}
 
 	m := make(map[float64]float32)
 	for s := range scanindexentries {
 		//read Scan Packet for the above scan number
 		scan := new(unthermo.ScanDataPacket)
-		unthermo.ReadFile(filename, rh.DataAddr+scanindexentries[s].Offset, 0, scan)
+		unthermo.ReadFile(fn, rh.DataAddr+scanindexentries[s].Offset, 0, scan)
 
 		//convert the Hz values into m/z and list the signals
 		for i := uint32(0); i < scan.Profile.PeakCount; i++ {
