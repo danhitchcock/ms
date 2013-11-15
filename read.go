@@ -26,28 +26,33 @@ type Reader interface {
 //position in the file after the read
 func ReadFile(fn string, pos uint64, v version, data Reader) uint64 {
 	file, err := os.Open(fn)
+	if err != nil {
+		log.Fatal("error opening file", err)
+	}
+	defer file.Close()
 	spos, err := file.Seek(int64(pos), 0)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error seeking file", err)
 	}
 
 	data.Read(file, v)
 
 	spos, err = file.Seek(0, 1)
+
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error determining position in file", err)
 	}
 	return uint64(spos)
 }
 
 func (data ScanEvent) Convert(v float64) float64 {
 	switch data.Nparam {
-		case 4:
-			return data.A + data.B/v + data.C/v/v
-		case 5, 7:
-			return data.A + data.B/v/v + data.C/v/v/v/v
-		default:
-			return v
+	case 4:
+		return data.A + data.B/v + data.C/v/v
+	case 5, 7:
+		return data.A + data.B/v/v + data.C/v/v/v/v
+	default:
+		return v
 	}
 }
 
@@ -97,7 +102,7 @@ func (data *ScanEvent) Read(r io.Reader, v version) {
 		Read(r, data.Preamble[:80])
 	case v >= 62 && v < 63:
 		Read(r, data.Preamble[:120])
-	case v>=63 && v<66:
+	case v >= 63 && v < 66:
 		Read(r, data.Preamble[:128])
 	default:
 		Read(r, &data.Preamble)
@@ -135,6 +140,18 @@ func (data *ScanEvent) Read(r io.Reader, v version) {
 }
 
 func (data *FileHeader) Read(r io.Reader, v version) {
+	Read(r, data)
+}
+
+func (data *CDataPacket) Read(r io.Reader, v version) {
+	Read(r, data)
+}
+
+func (data CIndexEntry) Size(v version) uint64 {
+	return 64
+}
+
+func (data *CIndexEntry) Read(r io.Reader, v version) {
 	Read(r, data)
 }
 
@@ -258,9 +275,20 @@ func (data *RunHeader) Read(r io.Reader, v version) {
 		Read(r, &data.Unknown34)
 		Read(r, &data.Unknown35)
 	}
+
+	Read(r, &data.Unknown36)
+	Read(r, &data.Unknown37)
+	Read(r, &data.Device)
+	Read(r, &data.Model)
+	Read(r, &data.SN)
+	Read(r, &data.SWVer)
+	Read(r, &data.Tag1)
+	Read(r, &data.Tag2)
+	Read(r, &data.Tag3)
+	Read(r, &data.Tag4)
 }
 
-func (data *Info) Read(r io.Reader, v version) {
+func (data *RawFileInfo) Read(r io.Reader, v version) {
 	Read(r, &data.Preamble.Methodfilepresent)
 	Read(r, &data.Preamble.Year)
 	Read(r, &data.Preamble.Month)
@@ -274,28 +302,50 @@ func (data *Info) Read(r io.Reader, v version) {
 	if v >= 57 {
 		Read(r, &data.Preamble.Unknown1)
 		Read(r, &data.Preamble.DataAddr32)
+		Read(r, &data.Preamble.NControllers)
+		Read(r, &data.Preamble.NControllers2)
 		Read(r, &data.Preamble.Unknown2)
 		Read(r, &data.Preamble.Unknown3)
-		Read(r, &data.Preamble.Unknown4)
-		Read(r, &data.Preamble.Unknown5)
-		Read(r, &data.Preamble.RunHeaderAddr32)
-		if v <= 63 {
-			Read(r, data.Preamble.Unknown6[:756])
-		}
-		Read(r, &data.Preamble.Unknown6)
+		if v < 64 {
+			data.Preamble.RunHeaderAddr32 = make([]uint32, data.Preamble.NControllers)
+			data.Preamble.Unknown4 = make([]uint32, data.Preamble.NControllers)
+			data.Preamble.Unknown5 = make([]uint32, data.Preamble.NControllers)
+			for i := range data.Preamble.RunHeaderAddr32 {
+				Read(r, &data.Preamble.RunHeaderAddr32[i])
+				Read(r, &data.Preamble.Unknown4[i])
+				Read(r, &data.Preamble.Unknown5[i])
+			}
 
-		data.Preamble.RunHeaderAddr = uint64(data.Preamble.RunHeaderAddr32)
+			data.Preamble.RunHeaderAddr = make([]uint64, data.Preamble.NControllers)
+			for i := range data.Preamble.RunHeaderAddr {
+				data.Preamble.RunHeaderAddr[i] = uint64(data.Preamble.RunHeaderAddr32[i])
+			}
+
+			if v == 57 {
+				Read(r, data.Preamble.Padding1[:756-12*data.Preamble.NControllers])
+			} else {
+				Read(r, data.Preamble.Padding1[:760-12*data.Preamble.NControllers])
+			}
+		} else {
+			Read(r, &data.Preamble.Padding1)
+		}
+
 	}
 	if v >= 64 {
 		Read(r, &data.Preamble.DataAddr)
-		Read(r, &data.Preamble.Unknown7)
-		Read(r, &data.Preamble.Unknown8)
-		Read(r, &data.Preamble.RunHeaderAddr)
+		Read(r, &data.Preamble.Unknown6)
 
-		if v <= 66 {
-			Read(r, data.Preamble.Unknown9[:1008])
+		data.Preamble.RunHeaderAddr = make([]uint64, data.Preamble.NControllers)
+		data.Preamble.Unknown7 = make([]uint64, data.Preamble.NControllers)
+		for i := range data.Preamble.RunHeaderAddr {
+			Read(r, &data.Preamble.RunHeaderAddr[i])
+			Read(r, &data.Preamble.Unknown7[i])
 		}
-		Read(r, &data.Preamble.Unknown9)
+		if v <= 66 {
+			Read(r, data.Preamble.Padding2[:1016-16*data.Preamble.NControllers])
+		} else {
+			Read(r, &data.Preamble.Padding2)
+		}
 	}
 
 	Read(r, &data.Heading1)

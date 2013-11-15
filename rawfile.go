@@ -106,6 +106,26 @@ type ScanIndexEntry struct {
 	Unknown3       uint32
 }
 
+type CIndexEntry struct {
+	Offset32 uint32
+	Index    uint32
+	Event    uint16
+	Unknown1 uint16
+	Unknown2 uint32
+	Unknown3 uint32
+	Unknown4 uint32
+	Unknown5 float64
+	Time     float64
+	Unknown6 float64
+	Unknown7 float64
+	Value    float64
+}
+
+type CDataPacket struct { //unused at the moment
+	Value float64
+	Time  float64
+}
+
 type filename [260]uint16
 
 func (t filename) String() string {
@@ -175,6 +195,17 @@ type RunHeader struct {
 	Unknown33 uint32
 	Unknown34 uint32
 	Unknown35 uint32
+
+	Unknown36 [8]byte
+	Unknown37 uint32
+	Device    PascalString
+	Model     PascalString
+	SN        PascalString
+	SWVer     PascalString
+	Tag1      PascalString
+	Tag2      PascalString
+	Tag3      PascalString
+	Tag4      PascalString
 }
 
 type SampleInfo struct {
@@ -190,7 +221,7 @@ type SampleInfo struct {
 	InstlogAddr     uint32
 	ErrorlogAddr    uint32
 	Unknown5        uint32
-	MaxIonCurrent   float64
+	MaxSignal       float64
 	Lowmz           float64
 	Highmz          float64
 	Starttime       float64
@@ -265,7 +296,7 @@ type InjectionData struct {
 	Dilutionfactor              float64
 }
 
-type Info struct {
+type RawFileInfo struct {
 	Preamble InfoPreamble
 	Heading1 PascalString
 	Heading2 PascalString
@@ -297,18 +328,20 @@ type InfoPreamble struct {
 
 	Unknown1        uint32
 	DataAddr32      uint32
+	NControllers    uint32
+	NControllers2   uint32
 	Unknown2        uint32
 	Unknown3        uint32
-	Unknown4        uint32
-	Unknown5        uint32
-	RunHeaderAddr32 uint32
-	Unknown6        [760]byte //760 bytes, 756 bytes in v57
+	RunHeaderAddr32 []uint32
+	Unknown4        []uint32
+	Unknown5        []uint32
+	Padding1        [764]byte //760 bytes, 756 bytes in v57
 
 	DataAddr      uint64
-	Unknown7      uint32
-	Unknown8      uint32
-	RunHeaderAddr uint64
-	Unknown9      [1024]byte //1024 bytes, 1008 bytes in v64
+	Unknown6      uint64
+	RunHeaderAddr []uint64
+	Unknown7      []uint64
+	Padding2      [1024]byte //1024 bytes, 1008 bytes in v64
 }
 
 type headertag [514]uint16
