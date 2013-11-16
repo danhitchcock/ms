@@ -19,13 +19,13 @@ func main() {
 	flag.IntVar(&instr, "instr", 0, "the instrument number")
 	flag.Parse()
 
-	for _, fn := range flag.Args() {
+	for _, filename := range flag.Args() {
 		if sn > 0 {
-			PrintScan(fn, sn)
+			PrintScan(filename, sn)
 		} else if instr > 0 {
-			PrintOther(fn, instr)
+			PrintOther(filename, instr)
 		} else {
-			Filter(fn)
+			PrintAllScans(filename)
 		}
 
 	}
@@ -141,6 +141,8 @@ func PrintAllScans(fn string) {
 
 }
 
+
+//@pre instr>0, in other words: not the mass spectrometer
 func PrintOther(fn string, instr int) {
 
 	hdr := new(unthermo.FileHeader)
@@ -156,6 +158,10 @@ func PrintOther(fn string, instr int) {
 	pos = unthermo.ReadFile(fn, pos, 0, new(unthermo.AutoSamplerInfo))
 	unthermo.ReadFile(fn, pos, ver, info)
 
+	if uint32(instr) > info.Preamble.NControllers - 1 {
+		log.Fatal(instr, " is higher than number of extra controllers ", info.Preamble.NControllers - 1)
+	}
+	
 	//in info we finally have an address, let's read the RunHeader,
 	//it contains an interesting address: DataAddr
 	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[instr], ver, rh)
