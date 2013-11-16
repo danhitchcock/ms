@@ -123,7 +123,7 @@ type CIndexEntry struct {
 	Offset uint64
 }
 
-type CDataPacket struct { //unused at the moment
+type CDataPacket struct { //16 bytes
 	Value float64
 	Time  float64
 }
@@ -358,7 +358,7 @@ func (t signature) String() string {
 	return string(utf16.Decode(t[:]))
 }
 
-type version uint32
+type Version uint32
 
 type FileHeader struct { //1356 bytes
 	Magic       uint16    //2 bytes
@@ -367,7 +367,7 @@ type FileHeader struct { //1356 bytes
 	Unknown2    uint32    //4 bytes
 	Unknown3    uint32    //4 bytes
 	Unknown4    uint32    //4 bytes
-	Version     version   //4 bytes
+	Version     Version   //4 bytes
 	Audit_start AuditTag  //112 bytes
 	Audit_end   AuditTag  //112 bytes
 	Unknown5    uint32    //4 bytes

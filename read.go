@@ -19,12 +19,12 @@ func Read(r io.Reader, data interface{}) {
 }
 
 type Reader interface {
-	Read(io.Reader, version)
+	Read(io.Reader, Version)
 }
 
-//Reads a version v Thermo File, starting at position pos, returns the
+//Reads a Version v Thermo File, starting at position pos, returns the
 //position in the file after the read
-func ReadFile(fn string, pos uint64, v version, data Reader) uint64 {
+func ReadFile(fn string, pos uint64, v Version, data Reader) uint64 {
 	file, err := os.Open(fn)
 	if err != nil {
 		log.Fatal("error opening file", err)
@@ -58,11 +58,11 @@ func (data ScanEvent) Convert(v float64) float64 {
 
 type TrailerLength uint32
 
-func (data *TrailerLength) Read(r io.Reader, v version) {
+func (data *TrailerLength) Read(r io.Reader, v Version) {
 	Read(r, data)
 }
 
-func (data *ScanDataPacket) Read(r io.Reader, v version) {
+func (data *ScanDataPacket) Read(r io.Reader, v Version) {
 	Read(r, &data.Header)
 
 	if data.Header.ProfileSize > 0 {
@@ -94,7 +94,7 @@ func (data *ScanDataPacket) Read(r io.Reader, v version) {
 	}
 }
 
-func (data *ScanEvent) Read(r io.Reader, v version) {
+func (data *ScanEvent) Read(r io.Reader, v Version) {
 	switch {
 	case v < 57:
 		Read(r, data.Preamble[:41])
@@ -139,15 +139,15 @@ func (data *ScanEvent) Read(r io.Reader, v version) {
 	Read(r, &data.Unknown4)
 }
 
-func (data *FileHeader) Read(r io.Reader, v version) {
+func (data *FileHeader) Read(r io.Reader, v Version) {
 	Read(r, data)
 }
 
-func (data *CDataPacket) Read(r io.Reader, v version) {
+func (data *CDataPacket) Read(r io.Reader, v Version) {
 	Read(r, data)
 }
 
-func (data CIndexEntry) Size(v version) uint64 {
+func (data CIndexEntry) Size(v Version) uint64 {
 	switch {
 	case v < 64:
 		return 64
@@ -156,7 +156,7 @@ func (data CIndexEntry) Size(v version) uint64 {
 	}
 }
 
-func (data *CIndexEntry) Read(r io.Reader, v version) {
+func (data *CIndexEntry) Read(r io.Reader, v Version) {
 	switch {
 	case v < 64:
 		Read(r, &data.Offset32)
@@ -179,7 +179,7 @@ func (data *CIndexEntry) Read(r io.Reader, v version) {
 
 }
 
-func (data ScanIndexEntry) Size(v version) uint64 {
+func (data ScanIndexEntry) Size(v Version) uint64 {
 	switch {
 	case v < 64:
 		return 72
@@ -190,7 +190,7 @@ func (data ScanIndexEntry) Size(v version) uint64 {
 	}
 }
 
-func (data *ScanIndexEntry) Read(r io.Reader, v version) {
+func (data *ScanIndexEntry) Read(r io.Reader, v Version) {
 	if v == 66 {
 		Read(r, data)
 	} else if v == 64 {
@@ -227,7 +227,7 @@ func (data *ScanIndexEntry) Read(r io.Reader, v version) {
 	}
 }
 
-func (data *RunHeader) Read(r io.Reader, v version) {
+func (data *RunHeader) Read(r io.Reader, v Version) {
 	Read(r, &data.SampleInfo)
 	Read(r, &data.Filename1)
 	Read(r, &data.Filename2)
@@ -312,7 +312,7 @@ func (data *RunHeader) Read(r io.Reader, v version) {
 	Read(r, &data.Tag4)
 }
 
-func (data *RawFileInfo) Read(r io.Reader, v version) {
+func (data *RawFileInfo) Read(r io.Reader, v Version) {
 	Read(r, &data.Preamble.Methodfilepresent)
 	Read(r, &data.Preamble.Year)
 	Read(r, &data.Preamble.Month)
@@ -380,12 +380,12 @@ func (data *RawFileInfo) Read(r io.Reader, v version) {
 	Read(r, &data.Unknown1)
 }
 
-func (data *AutoSamplerInfo) Read(r io.Reader, v version) {
+func (data *AutoSamplerInfo) Read(r io.Reader, v Version) {
 	Read(r, &data.Preamble)
 	Read(r, &data.Text)
 }
 
-func (data *SequencerRow) Read(r io.Reader, v version) {
+func (data *SequencerRow) Read(r io.Reader, v Version) {
 	Read(r, &data.Injection)
 
 	Read(r, &data.Unknown1)
