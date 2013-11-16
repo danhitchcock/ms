@@ -30,24 +30,8 @@ func main() {
 	}
 }
 
-func ReadHeaders(fn string) (unthermo.RawFileInfo, unthermo.Version) {
-	hdr := new(unthermo.FileHeader)
-	info := new(unthermo.RawFileInfo)
-
-	//save position in file after reading, we need to sequentially
-	//read some things in order to get to actual byte addresses
-	pos := unthermo.ReadFile(fn, 0, 0, hdr)
-	ver := hdr.Version
-
-	pos = unthermo.ReadFile(fn, pos, ver, new(unthermo.SequencerRow))
-	pos = unthermo.ReadFile(fn, pos, 0, new(unthermo.AutoSamplerInfo))
-	unthermo.ReadFile(fn, pos, ver, info)
-
-	return *info, ver
-}
-
 func PrintScan(fn string, sn uint64) {
-	info, ver := ReadHeaders(fn)
+	info, ver := unthermo.ReadHeaders(fn)
 
 	rh := new(unthermo.RunHeader)
 	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
@@ -89,7 +73,7 @@ func PrintScan(fn string, sn uint64) {
 }
 
 func PrintAllScans(fn string) {
-	info, ver := ReadHeaders(fn)
+	info, ver := unthermo.ReadHeaders(fn)
 
 	rh := new(unthermo.RunHeader)
 	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
@@ -131,7 +115,7 @@ func PrintAllScans(fn string) {
 
 //@pre instr>0. in other words: not the mass spectrometer
 func PrintOther(fn string, instr int) {
-	info, ver := ReadHeaders(fn)
+	info, ver := unthermo.ReadHeaders(fn)
 
 	if uint32(instr) > info.Preamble.NControllers-1 {
 		log.Fatal(instr, " is higher than number of extra controllers ", info.Preamble.NControllers-1)
@@ -153,7 +137,7 @@ func PrintOther(fn string, instr int) {
 }
 
 func Filter(fn string) {
-	info, ver := ReadHeaders(fn)
+	info, ver := unthermo.ReadHeaders(fn)
 
 	rh := new(unthermo.RunHeader)
 	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)

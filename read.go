@@ -45,6 +45,23 @@ func ReadFile(fn string, pos uint64, v Version, data Reader) uint64 {
 	return uint64(spos)
 }
 
+func ReadHeaders(fn string) (RawFileInfo, Version) {
+	hdr := new(FileHeader)
+	info := new(RawFileInfo)
+
+	//save position in file after reading, we need to sequentially
+	//read some things in order to get to actual byte addresses
+	pos := ReadFile(fn, 0, 0, hdr)
+	ver := hdr.Version
+
+	pos = ReadFile(fn, pos, ver, new(SequencerRow))
+	pos = ReadFile(fn, pos, 0, new(AutoSamplerInfo))
+	ReadFile(fn, pos, ver, info)
+
+	return *info, ver
+}
+
+
 func (data ScanEvent) Convert(v float64) float64 {
 	switch data.Nparam {
 	case 4:
