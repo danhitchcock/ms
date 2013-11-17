@@ -61,7 +61,6 @@ func ReadHeaders(fn string) (RawFileInfo, Version) {
 	return *info, ver
 }
 
-
 func (data ScanEvent) Convert(v float64) float64 {
 	switch data.Nparam {
 	case 4:
@@ -96,9 +95,7 @@ func (data *ScanDataPacket) Read(r io.Reader, v Version) {
 				Read(r, &data.Profile.Chunks[i].Fudge)
 			}
 			data.Profile.Chunks[i].Signal = make([]float32, data.Profile.Chunks[i].Nbins)
-			for j := range data.Profile.Chunks[i].Signal {
-				Read(r, &data.Profile.Chunks[i].Signal[j])
-			}
+			Read(r, &data.Profile.Chunks[i].Signal)
 		}
 	}
 
