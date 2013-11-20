@@ -109,48 +109,69 @@ func (data *ScanDataPacket) Read(r io.Reader, v Version) {
 }
 
 func (data *ScanEvent) Read(r io.Reader, v Version) {
-	switch {
+	if v<66 {
+		switch {
 	case v < 57:
 		Read(r, data.Preamble[:41])
 	case v >= 57 && v < 62:
 		Read(r, data.Preamble[:80])
 	case v >= 62 && v < 63:
 		Read(r, data.Preamble[:120])
-	case v >= 63 && v < 66:
+	case v >= 63:
 		Read(r, data.Preamble[:128])
-	default:
-		Read(r, &data.Preamble)
 	}
-
 	Read(r, &data.Nprecursors)
-
 	data.Reaction = make([]Reaction, data.Nprecursors)
 	for i := range data.Reaction {
 		Read(r, &data.Reaction[i])
 	}
 
-	Read(r, &data.Unknown1)
-	Read(r, &data.MZrange)
+	Read(r, &data.Unknown1[0])
+	Read(r, &data.MZrange[0])
 	Read(r, &data.Nparam)
 
 	switch data.Nparam {
 	case 4:
-		Read(r, &data.Unknown2)
+		Read(r, &data.Unknown2[0])
 		Read(r, &data.A)
 		Read(r, &data.B)
 		Read(r, &data.C)
 	case 7:
-		Read(r, &data.Unknown2)
-		Read(r, &data.I)
+		Read(r, data.Unknown2[0:2])
 		Read(r, &data.A)
 		Read(r, &data.B)
 		Read(r, &data.C)
-		Read(r, &data.D)
-		Read(r, &data.E)
+		Read(r, data.Unknown2[2:4])
 	}
 
-	Read(r, &data.Unknown3)
-	Read(r, &data.Unknown4)
+	Read(r, data.Unknown1[1:3])
+	} else { //v66
+		Read(r, &data.Preamble)
+		Read(r, &data.Unknown1[0])
+		Read(r, &data.Nprecursors) //this is just a guess according to Gene Selkov
+		if data.Preamble[10] == 1 { //ms2 (dependent scan)
+			data.Reaction = make([]Reaction, data.Nprecursors)
+			for i := range data.Reaction {
+				Read(r, &data.Reaction[i])
+			}
+			Read(r, data.Unknown2[0:2])
+			Read(r, data.Unknown1[1:4])
+			Read(r, &data.MZrange[0])
+			Read(r, &data.Nparam)
+		} else { //ms1
+			Read(r, &data.MZrange[0])
+			Read(r, data.Unknown1[1:5])
+			Read(r, &data.MZrange[1])
+			Read(r, data.Unknown1[5:8])
+			Read(r, &data.MZrange[2])
+			Read(r, &data.Nparam)
+		}
+		Read(r, data.Unknown2[2:4])
+		Read(r, &data.A)
+		Read(r, &data.B)
+		Read(r, &data.C)
+		Read(r, data.Unknown1[8:13])
+	}
 }
 
 func (data *FileHeader) Read(r io.Reader, v Version) {
@@ -379,10 +400,10 @@ func (data *RawFileInfo) Read(r io.Reader, v Version) {
 			Read(r, &data.Preamble.RunHeaderAddr[i])
 			Read(r, &data.Preamble.Unknown7[i])
 		}
-		if v <= 66 {
+		if v < 66 {
 			Read(r, data.Preamble.Padding2[:1016-16*data.Preamble.NControllers])
 		} else {
-			Read(r, &data.Preamble.Padding2)
+			Read(r, data.Preamble.Padding2[:1032-16*data.Preamble.NControllers])
 		}
 	}
 

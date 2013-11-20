@@ -51,25 +51,19 @@ type ProfileChunk struct {
 }
 
 type ScanEvent struct {
-	Preamble    ScanEventPreamble
+	Preamble    [132]uint8 //128 bytes from v63 on, 120 in v62, 80 in v57, 41 below that
 	Nprecursors uint32
 
 	Reaction []Reaction
 
-	Unknown1 uint32
-	MZrange  FractionCollector
+	Unknown1 [13]uint32
+	MZrange  [3]FractionCollector
 	Nparam   uint32
 
-	Unknown2 float64
+	Unknown2 [4]float64
 	A        float64
 	B        float64
 	C        float64
-	D        float64
-	E        float64
-	I        float64
-
-	Unknown3 uint32
-	Unknown4 uint32
 }
 
 type Reaction struct {
@@ -85,7 +79,6 @@ type FractionCollector struct {
 	Highmz float64
 }
 
-type ScanEventPreamble [136]uint8 //128 bytes in v63 and up, 120 in v62, 80 in v57, 41 below that
 
 type ScanIndexEntry struct {
 	Offset32       uint32
@@ -343,7 +336,7 @@ type InfoPreamble struct {
 	Unknown6      uint64
 	RunHeaderAddr []uint64
 	Unknown7      []uint64
-	Padding2      [1024]byte //1024 bytes, 1008 bytes in v64
+	Padding2      [1032]byte //1024 bytes, 1008 bytes in v64
 }
 
 type headertag [514]uint16
