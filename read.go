@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"math"
 )
 
 func Read(r io.Reader, data interface{}) {
@@ -95,7 +96,14 @@ func (data *ScanDataPacket) Read(r io.Reader, v Version) {
 				Read(r, &data.Profile.Chunks[i].Fudge)
 			}
 			data.Profile.Chunks[i].Signal = make([]float32, data.Profile.Chunks[i].Nbins)
-			Read(r, &data.Profile.Chunks[i].Signal)
+			
+			for j := range data.Profile.Chunks[i].Signal {
+				buf := make([]byte, 4)
+				if _, err := io.ReadFull(r, buf); err != nil {
+					log.Fatal("error reading scan: ", err)
+				}
+				data.Profile.Chunks[i].Signal[j]= math.Float32frombits(uint32(buf[0]) | uint32(buf[1])<<8 | uint32(buf[2])<<16 | uint32(buf[3])<<24)
+			}
 		}
 	}
 
