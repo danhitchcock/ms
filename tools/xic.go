@@ -1,7 +1,7 @@
 //XIC prints a "chromatogram" for one ion.
 //
 //It prints the peak with highest intensity in interval [mz-tol,mz+tol]
-//for every profile-mode scan. 
+//for every profile-mode scan.
 //
 //Every line contains the retention time and intensity of a peak
 //
@@ -22,6 +22,11 @@ import (
 	"fmt"
 )
 
+type MS struct {
+	mz float64
+	I  float32
+}
+
 func main() {
 	var mz float64
 	var tol float64
@@ -30,11 +35,11 @@ func main() {
 	flag.Parse()
 
 	for _, filename := range flag.Args() {
-		ReadAllScans(filename, mz, tol)
+		PrintXIC(filename, mz, tol)
 	}
 }
 
-func ReadAllScans(fn string, mz float64, tol float64) {
+func PrintXIC(fn string, mz float64, tol float64) {
 	info, ver := unthermo.ReadFileHeaders(fn)
 
 	rh := new(unthermo.RunHeader)
@@ -58,7 +63,9 @@ func ReadAllScans(fn string, mz float64, tol float64) {
 	//read all scanindexentries at once, this is probably the fastest
 	scanindexentries := make([]unthermo.ScanIndexEntry, nScans)
 	for i := range scanindexentries {
-		unthermo.ReadFile(fn, rh.ScanindexAddr+uint64(i)*scanindexentries[i].Size(ver), ver, &scanindexentries[i])
+		unthermo.ReadFile(fn,
+			rh.ScanindexAddr+uint64(i)*scanindexentries[i].Size(ver),
+			ver, &scanindexentries[i])
 	}
 
 	for s := range scanindexentries {
@@ -66,21 +73,24 @@ func ReadAllScans(fn string, mz float64, tol float64) {
 		unthermo.ReadFile(fn, rh.DataAddr+scanindexentries[s].Offset, 0, scan)
 
 		var m []MS
-		//convert the Hz values into m/z and list the signals
-		
+
+		//convert the Hz values into m/z and save the signals within range
 		for i := uint32(0); i < scan.Profile.PeakCount; i++ {
 			for j := uint32(0); j < scan.Profile.Chunks[i].Nbins; j++ {
-				tmpmz:=scanevents[s].Convert(scan.Profile.FirstValue+float64(scan.Profile.Chunks[i].Firstbin+j)*scan.Profile.Step)+float64(scan.Profile.Chunks[i].Fudge)
-				if tmpmz <= mz + tol && tmpmz >= mz - tol {
+				tmpmz := scanevents[s].Convert(scan.Profile.FirstValue+
+					float64(scan.Profile.Chunks[i].Firstbin+j)*scan.Profile.Step) +
+					float64(scan.Profile.Chunks[i].Fudge)
+				if tmpmz <= mz+tol && tmpmz >= mz-tol {
 					m = append(m, MS{tmpmz,
-					scan.Profile.Chunks[i].Signal[j]})
+						scan.Profile.Chunks[i].Signal[j]})
 				}
 			}
 		}
-		
+
+		//print the maximum signal
 		if len(m) > 0 {
 			var maxInt float32
-			for i:=range m {
+			for i := range m {
 				if m[i].I > maxInt {
 					maxInt = m[i].I
 				}
@@ -89,11 +99,3 @@ func ReadAllScans(fn string, mz float64, tol float64) {
 		}
 	}
 }
-
-//type declarations
-
-type MS struct {
-	mz   float64
-	I    float32
-}
-
