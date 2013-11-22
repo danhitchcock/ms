@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"math"
 )
 
 func Read(r io.Reader, data interface{}) {
@@ -46,7 +45,7 @@ func ReadFile(fn string, pos uint64, v Version, data Reader) uint64 {
 	return uint64(spos)
 }
 
-func ReadHeaders(fn string) (RawFileInfo, Version) {
+func ReadFileHeaders(fn string) (RawFileInfo, Version) {
 	hdr := new(FileHeader)
 	info := new(RawFileInfo)
 
@@ -96,14 +95,7 @@ func (data *ScanDataPacket) Read(r io.Reader, v Version) {
 				Read(r, &data.Profile.Chunks[i].Fudge)
 			}
 			data.Profile.Chunks[i].Signal = make([]float32, data.Profile.Chunks[i].Nbins)
-			
-			for j := range data.Profile.Chunks[i].Signal {
-				buf := make([]byte, 4)
-				if _, err := io.ReadFull(r, buf); err != nil {
-					log.Fatal("error reading scan: ", err)
-				}
-				data.Profile.Chunks[i].Signal[j]= math.Float32frombits(uint32(buf[0]) | uint32(buf[1])<<8 | uint32(buf[2])<<16 | uint32(buf[3])<<24)
-			}
+			Read(r, &data.Profile.Chunks[i].Signal)
 		}
 	}
 
