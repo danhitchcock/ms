@@ -1,190 +1,32 @@
-//Package UnThermo
-//after unfinnigan http://code.google.com/p/unfinnigan/wiki/FileLayoutOverview
+Package UnThermo
+after unfinnigan http://code.google.com/p/unfinnigan/wiki/FileLayoutOverview
 
-//example use case:
-package main
+Look for example usages in the tools directory.
 
-import (
-	"bitbucket.org/proteinspector/unthermo"
-	"flag"
-	"fmt"
-	"log"
-	"sort"
-)
+Usable tools:
 
-func main() {
-	var scan uint64
-	var instr int
-	flag.Uint64Var(&scan, "scan", 0, "the scan number")
-	flag.IntVar(&instr, "instr", 0, "the instrument number")
-	flag.Parse()
+XIC
+linux amd64: https://bitbucket.org/proteinspector/unthermo/downloads/xic
+windows 386: https://bitbucket.org/proteinspector/unthermo/downloads/xic.exe
+macos amd64: https://bitbucket.org/proteinspector/unthermo/downloads/xicmac
 
-	for _, filename := range flag.Args() {
-		if scan > 0 {
-			PrintScan(filename, scan)
-		} else if instr > 0 {
-			PrintOther(filename, instr)
-		} else {
-			PrintAllScans(filename)
-		}
-	}
-}
+    XIC prints a "chromatogram" for one ion.
 
-func PrintScan(fn string, sn uint64) {
-	info, ver := unthermo.ReadHeaders(fn)
+    It prints the peak with highest intensity in interval [mz-tol,mz+tol]
+    for every profile-mode scan.
 
-	rh := new(unthermo.RunHeader)
-	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
 
-	//the MS RunHeader contains besides general info three interesting
-	//addresses: ScanindexAddr (with the scan headers), DataAddr,
-	//and ScantrailerAddr (which includes orbitrap Hz-m/z conversion
-	//parameters and info about the scans)
+    Every line contains the retention time and intensity of a peak
 
-	if sn < uint64(rh.SampleInfo.FirstScanNumber) || sn > uint64(rh.SampleInfo.LastScanNumber) {
-		log.Fatal("scan number out of range: ", rh.SampleInfo.FirstScanNumber, ", ", rh.SampleInfo.LastScanNumber)
-	}
+    Example:
 
-	//read the n'th ScanIndexEntry
-	sie := new(unthermo.ScanIndexEntry)
-	unthermo.ReadFile(fn, rh.ScanindexAddr+(sn-1)*sie.Size(ver), ver, sie)
+        xic -mz 361.1466 -tol 0.0025 rawfile.raw
 
-	//For later conversion of frequency values to m/z, we need a ScanEvent
-	//The list of them starts 4 bytes later than ScantrailerAddr
-	pos := rh.ScantrailerAddr + 4
+    Output:
 
-	//the ScanEvents are of variable size and have no pointer to
-	//them, we need to read at least all the ones preceding n
-	scanevent := new(unthermo.ScanEvent)
-	for i := uint64(0); i < sn; i++ {
-		pos = unthermo.ReadFile(fn, pos, ver, scanevent)
-	}
+        0.003496666666666667 10500.583
+        0.015028333333333333 11793.04
+        0.03391333333333333 10178.598
+        0.05393333333333334 10671.821
+        0.07350833333333334 11572.251
 
-	//read Scan Packet for the above scan number
-	scan := new(unthermo.ScanDataPacket)
-	unthermo.ReadFile(fn, rh.DataAddr+sie.Offset, 0, scan)
-
-	//convert the Hz values into m/z and list the signals
-	for i := uint32(0); i < scan.Profile.PeakCount; i++ {
-		for j := uint32(0); j < scan.Profile.Chunks[i].Nbins; j++ {
-			fmt.Println(scanevent.Convert(scan.Profile.FirstValue+float64(scan.Profile.Chunks[i].Firstbin+j)*scan.Profile.Step)+float64(scan.Profile.Chunks[i].Fudge), scan.Profile.Chunks[i].Signal[j])
-		}
-	}
-}
-
-func PrintAllScans(fn string) {
-	info, ver := unthermo.ReadHeaders(fn)
-
-	rh := new(unthermo.RunHeader)
-	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
-
-	//For later conversion of frequency values to m/z, we need a ScanEvent
-	//for each Scan.
-	//The list of them starts an uint32 later than ScantrailerAddr
-	//the uint32 contains the number of ScanEvents, but we know this
-	//already through SampleInfo
-	pos := rh.ScantrailerAddr + 4
-
-	//the ScanEvents are of variable size and have no pointer to
-	//them, we need to read them all sequentially
-	nScans := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
-	scanevents := make([]unthermo.ScanEvent, nScans)
-	for i := range scanevents {
-		pos = unthermo.ReadFile(fn, pos, ver, &scanevents[i])
-	}
-
-	//read all scanindexentries at once, this is probably the fastest
-	scanindexentries := make([]unthermo.ScanIndexEntry, nScans)
-	for i := range scanindexentries {
-		unthermo.ReadFile(fn, rh.ScanindexAddr+uint64(i)*scanindexentries[i].Size(ver), ver, &scanindexentries[i])
-	}
-
-	for s := range scanindexentries {
-		scan := new(unthermo.ScanDataPacket)
-		unthermo.ReadFile(fn, rh.DataAddr+scanindexentries[s].Offset, 0, scan)
-
-		//convert the Hz values into m/z and list the signals
-		for i := uint32(0); i < scan.Profile.PeakCount; i++ {
-			for j := uint32(0); j < scan.Profile.Chunks[i].Nbins; j++ {
-				fmt.Println(s+1, scanevents[s].Convert(scan.Profile.FirstValue+float64(scan.Profile.Chunks[i].Firstbin+j)*scan.Profile.Step)+float64(scan.Profile.Chunks[i].Fudge), scan.Profile.Chunks[i].Signal[j])
-			}
-		}
-	}
-
-}
-
-//@pre instr>0. in other words: not the mass spectrometer
-func PrintOther(fn string, instr int) {
-	info, ver := unthermo.ReadHeaders(fn)
-
-	if uint32(instr) > info.Preamble.NControllers-1 {
-		log.Fatal(instr, " is higher than number of extra controllers ", info.Preamble.NControllers-1)
-	}
-
-	rh := new(unthermo.RunHeader)
-	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[instr], ver, rh)
-
-	//The instrument RunHeader contains an interesting address: DataAddr
-	//There is another address ScanIndexAddr, which points to CIndexEntry
-	//containers at ScanIndexAddr. Less data can be read for now
-
-	nScan := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
-	for i := uint64(1); i < nScan; i++ {
-		cdata := new(unthermo.CDataPacket)
-		unthermo.ReadFile(fn, rh.DataAddr+i*16, ver, cdata) //16 bytes of CDataPacket
-		fmt.Println(cdata.Time, cdata.Value)
-	}
-}
-
-func Filter(fn string) {
-	info, ver := unthermo.ReadHeaders(fn)
-
-	rh := new(unthermo.RunHeader)
-	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
-
-	//read all Scan Index Entries
-	nScans := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
-	scanindexentries := make([]unthermo.ScanIndexEntry, nScans)
-	for i := range scanindexentries {
-		unthermo.ReadFile(fn, rh.ScanindexAddr+uint64(i)*scanindexentries[i].Size(ver), ver, &scanindexentries[i])
-	}
-
-	//For later conversion of frequency values to m/z, we need a ScanEvent
-	//The list of them starts an uint32 later than ScantrailerAddr
-	//the uint32 contains the number of ScanEvents, but we know this
-	//already through SampleInfo
-	pos := rh.ScantrailerAddr + 4
-
-	//the ScanEvents are of variable size and have no pointer to
-	//them, we need to read at least all the ones preceding n
-	//but as on modern systems we have enough memory, we read them all
-	scanevents := make([]unthermo.ScanEvent, nScans)
-	for i := range scanevents {
-		pos = unthermo.ReadFile(fn, pos, ver, &scanevents[i])
-	}
-
-	m := make(map[float64]float32)
-	for s := range scanindexentries {
-		//read Scan Packet for the above scan number
-		scan := new(unthermo.ScanDataPacket)
-		unthermo.ReadFile(fn, rh.DataAddr+scanindexentries[s].Offset, 0, scan)
-
-		//convert the Hz values into m/z and list the signals
-		for i := uint32(0); i < scan.Profile.PeakCount; i++ {
-			for j := uint32(0); j < scan.Profile.Chunks[i].Nbins; j++ {
-				mz := scanevents[s].Convert(scan.Profile.FirstValue+float64(scan.Profile.Chunks[i].Firstbin+j)*scan.Profile.Step) + float64(scan.Profile.Chunks[i].Fudge)
-				if mz > 720 && mz < 723 {
-					m[mz] += scan.Profile.Chunks[i].Signal[j]
-					//fmt.Println(s, scanevents[s].Convert(scan.Profile.FirstValue+float64(scan.Profile.Chunks[i].Firstbin+j)*scan.Profile.Step)+float64(scan.Profile.Chunks[i].Fudge), scan.Profile.Chunks[i].Signal[j])
-				}
-			}
-		}
-	}
-	fmt.Println(len(m))
-	var keys []float64
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Float64s(keys)
-	fmt.Println(keys[0], keys[len(keys)-1])
-}
