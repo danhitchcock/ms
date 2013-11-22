@@ -1,7 +1,7 @@
-Package UnThermo
+Package UnThermo, reading Thermo Finnigan RAW files
 after unfinnigan http://code.google.com/p/unfinnigan/wiki/FileLayoutOverview
 
-Look for example usages in the tools directory.
+Look for examples in the tools directory.
 
 Usable tools:
 
@@ -10,13 +10,13 @@ linux amd64: https://bitbucket.org/proteinspector/unthermo/downloads/xic
 windows 386: https://bitbucket.org/proteinspector/unthermo/downloads/xic.exe
 macos amd64: https://bitbucket.org/proteinspector/unthermo/downloads/xicmac
 
-    XIC prints a "chromatogram" for one ion.
+    XIC prints the "chromatogram" for one ion.
 
-    It prints the peak with highest intensity in interval [mz-tol,mz+tol]
-    for every profile-mode scan.
+    For every profile-mode scan it selects the spectral peak (if any) with highest 
+    intensity in interval [mz-tol, mz+tol]. 
 
 
-    Every line contains the retention time and intensity of a peak
+    Every output line contains the retention time and intensity of such a peak
 
     Example:
 
