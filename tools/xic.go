@@ -106,6 +106,6 @@ func PrintMaxInt(scan *unthermo.ScanDataPacket, scanevent *unthermo.ScanEvent, s
 				maxIn = m[i]
 			}
 		}
-		fmt.Println(sie.Index, maxIn.mz, maxIn.I)
+		fmt.Println(sie.Time, maxIn.I)
 	}
 }

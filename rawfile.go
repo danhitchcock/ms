@@ -96,7 +96,7 @@ type ScanIndexEntry struct {
 	Next           uint32
 	Unknown1       uint32
 	DataPacketSize uint32
-	ScanTime       float64
+	Time       float64
 	Totalcurrent   float64
 	Baseintensity  float64
 	Basemz         float64
