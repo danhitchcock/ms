@@ -10,11 +10,19 @@ type ScanDataPacket struct {
 	Header   PacketHeader
 	Profile  Profile
 	PeakList PeakList
+	DescriptorList [8192]PeakDescriptor //arbitrary size to preallocate memory
+	Unknown [8192]float32 //arbitrary size, can be too small
+	Triplets [2048]float32 //arbitrary size, can be too small
 }
 
+type PeakDescriptor struct {
+	Index uint16
+	Flags uint8
+	Charge uint8
+}
 type PeakList struct {
 	Count uint32
-	Peaks []Peak
+	Peaks [8192]Peak //arbitrary size, can be too small
 }
 
 type Peak struct {
@@ -27,9 +35,9 @@ type PacketHeader struct {
 	ProfileSize         uint32
 	PeaklistSize        uint32
 	Layout              uint32
-	Descriptorlistsize  uint32
-	Sizeofunknownstream uint32
-	Sizeoftripletstream uint32
+	DescriptorListSize  uint32
+	UnknownStreamSize uint32
+	TripletStreamSize uint32
 	Unknown2            uint32
 	Lowmz               float32
 	Highmz              float32
@@ -40,14 +48,14 @@ type Profile struct {
 	Step       float64
 	PeakCount  uint32
 	Nbins      uint32
-	Chunks     []ProfileChunk
+	Chunks     [8192]ProfileChunk //arbitrary size, can be too small
 }
 
 type ProfileChunk struct {
 	Firstbin uint32
 	Nbins    uint32
 	Fudge    float32
-	Signal   []float32
+	Signal   [128]float32 //arbitrary size, can be too small
 }
 
 type ScanEvent struct {

@@ -5,7 +5,51 @@ import (
 	"io"
 	"log"
 	"os"
+	"bytes"
 )
+
+//Reads the range in memory, then waits for scan packet references
+//when the scan packet is read, send it back over the same channel
+func ReadScansFromMemory(fn string, begin uint64, end uint64, v Version, ch chan *ScanDataPacket) {
+	file, err := os.Open(fn)
+	if err != nil {
+		log.Fatal("error opening file", err)
+	}
+	defer file.Close()
+	_, err = file.Seek(int64(begin), 0)
+	if err != nil {
+		log.Fatal("error seeking file", err)
+	}
+
+	b := make([]byte, end-begin) //may fail because of memory requirements
+	io.ReadFull(file, b)
+	buf:=bytes.NewReader(b)
+	
+	//for each incoming scan packet reference
+	for i:=range ch {
+		i.Read(buf, v) //read it
+		ch<-i //and send the reference back
+	}
+}
+
+//Reads the range in memory and then fills the Reader
+func ReadFileRange(fn string, begin uint64, end uint64, v Version, data Reader) {
+	file, err := os.Open(fn)
+	if err != nil {
+		log.Fatal("error opening file", err)
+	}
+	defer file.Close()
+	_, err = file.Seek(int64(begin), 0)
+	if err != nil {
+		log.Fatal("error seeking file", err)
+	}
+
+	b := make([]byte, end-begin) //may fail because of memory requirements
+	io.ReadFull(file, b)
+	buf:=bytes.NewReader(b)
+	
+	data.Read(buf, v)
+}
 
 func Read(r io.Reader, data interface{}) {
 	switch v := data.(type) {
@@ -78,6 +122,14 @@ func (data *TrailerLength) Read(r io.Reader, v Version) {
 	Read(r, data)
 }
 
+type ScanDataPackets []ScanDataPacket 
+
+func (data ScanDataPackets) Read(r io.Reader, v Version) {
+	for i:=range data {
+		data[i].Read(r, v)
+	}
+}
+
 func (data *ScanDataPacket) Read(r io.Reader, v Version) {
 	Read(r, &data.Header)
 
@@ -87,24 +139,32 @@ func (data *ScanDataPacket) Read(r io.Reader, v Version) {
 		Read(r, &data.Profile.PeakCount)
 		Read(r, &data.Profile.Nbins)
 
-		data.Profile.Chunks = make([]ProfileChunk, data.Profile.PeakCount)
-		for i := range data.Profile.Chunks {
+		for i := uint32(0); i < data.Profile.PeakCount; i++ {
 			Read(r, &data.Profile.Chunks[i].Firstbin)
 			Read(r, &data.Profile.Chunks[i].Nbins)
 			if data.Header.Layout > 0 {
 				Read(r, &data.Profile.Chunks[i].Fudge)
 			}
-			data.Profile.Chunks[i].Signal = make([]float32, data.Profile.Chunks[i].Nbins)
-			Read(r, &data.Profile.Chunks[i].Signal)
+			Read(r, data.Profile.Chunks[i].Signal[:data.Profile.Chunks[i].Nbins])
 		}
 	}
 
 	if data.Header.PeaklistSize > 0 {
 		Read(r, &data.PeakList.Count)
-		data.PeakList.Peaks = make([]Peak, data.PeakList.Count)
-		for i := range data.PeakList.Peaks {
-			Read(r, &data.PeakList.Peaks[i])
-		}
+		Read(r, data.PeakList.Peaks[:data.PeakList.Count])
+	}
+
+	Read(r, data.DescriptorList[:data.Header.DescriptorListSize])
+	Read(r, data.Unknown[:data.Header.UnknownStreamSize])
+	Read(r, data.Triplets[:data.Header.TripletStreamSize])
+	
+}
+
+type Scanevents []ScanEvent
+
+func (data Scanevents) Read(r io.Reader, v Version) {
+	for i:=range data {
+		data[i].Read(r, v)
 	}
 }
 
@@ -178,8 +238,24 @@ func (data *FileHeader) Read(r io.Reader, v Version) {
 	Read(r, data)
 }
 
+type CDataPackets []CDataPacket
+
+func (data CDataPackets) Read(r io.Reader, v Version) {
+	for i:=range data {
+		data[i].Read(r, v)
+	}
+}
+
 func (data *CDataPacket) Read(r io.Reader, v Version) {
 	Read(r, data)
+}
+
+type CIndexEntries []CIndexEntry
+
+func (data CIndexEntries) Read(r io.Reader, v Version) {
+	for i:=range data {
+		data[i].Read(r, v)
+	}
 }
 
 func (data CIndexEntry) Size(v Version) uint64 {
@@ -212,6 +288,14 @@ func (data *CIndexEntry) Read(r io.Reader, v Version) {
 		Read(r, data)
 	}
 
+}
+
+type ScanIndexEntries []ScanIndexEntry
+
+func (data ScanIndexEntries) Read(r io.Reader, v Version) {
+	for i:=range data {
+		data[i].Read(r, v)
+	}
 }
 
 func (data ScanIndexEntry) Size(v Version) uint64 {
