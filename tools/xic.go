@@ -20,6 +20,8 @@ import (
 	"bitbucket.org/proteinspector/unthermo"
 	"flag"
 	"fmt"
+	"strings"
+	"strconv"
 )
 
 type MS struct {
@@ -27,11 +29,29 @@ type MS struct {
 	I  float32
 }
 
+//argument parsing
+type mzarg []float64 //a new type for passing flags on the command line
+
+func (i *mzarg) String() string {
+	return fmt.Sprintf("%d", *i)
+}
+
+func (i *mzarg) Set(value string) error {
+	for _, splv := range strings.Split(value, ",") {
+		tmp, err := strconv.ParseFloat(splv,64)
+		if err != nil {
+			return err
+		}
+		*i = append(*i, tmp)
+	}
+    return nil
+}
+
 func main() {
-	var mz float64
+	var mz mzarg
 	var tol float64
 	var mem bool
-	flag.Float64Var(&mz, "mz", 0, "m/z to filter on")
+	flag.Var(&mz, "mz", "m/z to filter on, may be specified multiple times")
 	flag.Float64Var(&tol, "tol", 0, "allowed mz tolerance, can be used with -mz")
 	flag.BoolVar(&mem, "m", false, "read all scans in memory for a speed gain")
 	flag.Parse()
@@ -41,7 +61,7 @@ func main() {
 	}
 }
 
-func PrintXIC(fn string, mz float64, tol float64, mem bool) {
+func PrintXIC(fn string, mz mzarg, tol float64, mem bool) {
 	info, ver := unthermo.ReadFileHeaders(fn)
 
 	rh := new(unthermo.RunHeader)
@@ -59,8 +79,6 @@ func PrintXIC(fn string, mz float64, tol float64, mem bool) {
 	scanindexentries := make(unthermo.ScanIndexEntries, nScans)
 	unthermo.ReadFileRange(fn, rh.ScanindexAddr, rh.ScantrailerAddr, ver, scanindexentries)
 
-	//initialize the shared data structure
-	
 	if mem {
 		//create channel to share memory with library
 		ch := make(chan *unthermo.ScanDataPacket)
@@ -71,13 +89,17 @@ func PrintXIC(fn string, mz float64, tol float64, mem bool) {
 			scan := new(unthermo.ScanDataPacket)
 			ch <- scan 	//send pointer to data structure
 			scan = <-ch //receive pointer back when library is done
-			PrintMaxInt(scan, &scanevents[s], &scanindexentries[s], mz, tol)
+			for _,mz := range mz {
+				PrintMaxInt(scan, &scanevents[s], &scanindexentries[s], mz, tol)
+			}
 		}
 	} else {
 		for s := range scanindexentries {
 			scan := new(unthermo.ScanDataPacket)
 			unthermo.ReadFile(fn, rh.DataAddr+scanindexentries[s].Offset, 0, scan)
-			PrintMaxInt(scan, &scanevents[s], &scanindexentries[s], mz, tol)
+			for _,mz := range mz {
+				PrintMaxInt(scan, &scanevents[s], &scanindexentries[s], mz, tol)
+			}
 		}
 	}
 }
