@@ -90,7 +90,7 @@ func PrintXIC(fn string, mz mzarg, tol float64, mem bool) {
 			ch <- scan 	//send pointer to data structure
 			scan = <-ch //receive pointer back when library is done
 			for _,mz := range mz {
-				PrintMaxInt(scan, &scanevents[s], &scanindexentries[s], mz, tol)
+				PrintMaxPeak(scan, &scanevents[s], &scanindexentries[s], mz, tol)
 			}
 		}
 	} else {
@@ -98,13 +98,13 @@ func PrintXIC(fn string, mz mzarg, tol float64, mem bool) {
 			scan := new(unthermo.ScanDataPacket)
 			unthermo.ReadFile(fn, rh.DataAddr+scanindexentries[s].Offset, 0, scan)
 			for _,mz := range mz {
-				PrintMaxInt(scan, &scanevents[s], &scanindexentries[s], mz, tol)
+				PrintMaxPeak(scan, &scanevents[s], &scanindexentries[s], mz, tol)
 			}
 		}
 	}
 }
 
-func PrintMaxInt(scan *unthermo.ScanDataPacket, scanevent *unthermo.ScanEvent, sie *unthermo.ScanIndexEntry, mz float64, tol float64) {
+func PrintMaxPeak(scan *unthermo.ScanDataPacket, scanevent *unthermo.ScanEvent, sie *unthermo.ScanIndexEntry, mz float64, tol float64) {
 	var m []MS
 
 	//convert Hz values into m/z and save the signals within range
