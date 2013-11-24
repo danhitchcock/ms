@@ -57,11 +57,11 @@ func main() {
 	flag.Parse()
 
 	for _, filename := range flag.Args() {
-		PrintXIC(filename, mz, tol, mem)
+		XIC(filename, mz, tol, mem)
 	}
 }
 
-func PrintXIC(fn string, mz mzarg, tol float64, mem bool) {
+func XIC(fn string, mz mzarg, tol float64, mem bool) {
 	info, ver := unthermo.ReadFileHeaders(fn)
 
 	rh := new(unthermo.RunHeader)
