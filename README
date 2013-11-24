@@ -7,7 +7,7 @@ Usable tools:
 
 XIC
 linux amd64: https://bitbucket.org/proteinspector/unthermo/downloads/xic
-windows 386: https://bitbucket.org/proteinspector/unthermo/downloads/xic.exe
+windows amd64: https://bitbucket.org/proteinspector/unthermo/downloads/xic.exe
 macos amd64: https://bitbucket.org/proteinspector/unthermo/downloads/xicmac
 
     XIC prints the "chromatogram" for one ion.
