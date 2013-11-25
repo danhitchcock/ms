@@ -52,7 +52,7 @@ func main() {
 	var tol float64
 	var mem bool
 	flag.Var(&mz, "mz", "m/z to filter on, may be specified multiple times")
-	flag.Float64Var(&tol, "tol", 0, "allowed mz tolerance, can be used with -mz")
+	flag.Float64Var(&tol, "tol", 0, "allowed mz tolerance in ppm, can be used with -mz")
 	flag.BoolVar(&mem, "m", false, "read all scans in memory for a speed gain")
 	flag.Parse()
 
@@ -113,7 +113,7 @@ func PrintMaxPeak(scan *unthermo.ScanDataPacket, scanevent *unthermo.ScanEvent, 
 			tmpmz := scanevent.Convert(scan.Profile.FirstValue+
 				float64(scan.Profile.Chunks[i].Firstbin+j)*scan.Profile.Step) +
 				float64(scan.Profile.Chunks[i].Fudge)
-			if tmpmz <= mz+tol && tmpmz >= mz-tol {
+			if tmpmz <= mz+10e-6*tol*mz && tmpmz >= mz-10e-6*tol*mz {
 				m = append(m, MS{tmpmz,
 					scan.Profile.Chunks[i].Signal[j]})
 			}
@@ -128,6 +128,6 @@ func PrintMaxPeak(scan *unthermo.ScanDataPacket, scanevent *unthermo.ScanEvent, 
 				maxIn = m[i]
 			}
 		}
-		fmt.Println(sie.Time, maxIn.I)
+		fmt.Println(mz, sie.Time, maxIn.I)
 	}
 }
