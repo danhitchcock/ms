@@ -8,9 +8,9 @@ import (
 	"bytes"
 )
 
-//Reads the range in memory, then waits for scan packet references
-//when the scan packet is read, send it back over the same channel
-func ReadScansFromMemory(fn string, begin uint64, end uint64, v Version, ch chan *ScanDataPacket) {
+//Reads the range in memory, then waits for scan packet offsets
+//when the scan packet is read, send it back on the out channel
+func ReadScansFromMemory(fn string, begin uint64, end uint64, v Version, in <-chan uint64, out chan<- *ScanDataPacket) {
 	file, err := os.Open(fn)
 	if err != nil {
 		log.Fatal("error opening file", err)
@@ -25,10 +25,13 @@ func ReadScansFromMemory(fn string, begin uint64, end uint64, v Version, ch chan
 	io.ReadFull(file, b)
 	buf:=bytes.NewReader(b)
 	
-	//for each incoming scan packet reference
-	for i:=range ch {
-		i.Read(buf, v) //read it
-		ch<-i //and send the reference back
+	
+	//for each incoming scan packet offset
+	for offset := range in {
+		scan := new(ScanDataPacket)
+		buf.Seek(int64(offset), 0)
+		scan.Read(buf, v) //read the file at that offset
+		out<-scan //and send a reference to the corresponding scan back
 	}
 }
 

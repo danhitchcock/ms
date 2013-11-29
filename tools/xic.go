@@ -52,7 +52,7 @@ func main() {
 	var tol float64
 	var mem bool
 	flag.Var(&mz, "mz", "m/z to filter on, may be specified multiple times")
-	flag.Float64Var(&tol, "tol", 0, "allowed mz tolerance in ppm, can be used with -mz")
+	flag.Float64Var(&tol, "tol", 0, "allowed m/z tolerance in ppm, can be used with -mz")
 	flag.BoolVar(&mem, "m", false, "read all scans in memory for a speed gain")
 	flag.Parse()
 
@@ -62,8 +62,8 @@ func main() {
 }
 
 func XIC(fn string, mz mzarg, tol float64, mem bool) {
+	//Read necessary headers
 	info, ver := unthermo.ReadFileHeaders(fn)
-
 	rh := new(unthermo.RunHeader)
 	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
 
@@ -80,25 +80,27 @@ func XIC(fn string, mz mzarg, tol float64, mem bool) {
 	unthermo.ReadFileRange(fn, rh.ScanindexAddr, rh.ScantrailerAddr, ver, scanindexentries)
 
 	if mem {
-		//create channel to share memory with library
-		ch := make(chan *unthermo.ScanDataPacket)
+		//create channels to share memory with library
+		offset := make(chan uint64)
+		scans := make(chan *unthermo.ScanDataPacket)
+
 		//send off library to wait for work
-		go unthermo.ReadScansFromMemory(fn, rh.DataAddr, rh.OwnAddr, 0, ch)
-	
-		for s:=uint64(0); s<nScans ; s++ {
-			scan := new(unthermo.ScanDataPacket)
-			ch <- scan 	//send pointer to data structure
-			scan = <-ch //receive pointer back when library is done
+		go unthermo.ReadScansFromMemory(fn, rh.DataAddr, rh.OwnAddr, 0, offset, scans)
+		
+
+		for i,s := range scanindexentries {
+			offset <- s.Offset //send location of data structure
+			scan := <-scans //receive pointer back when library is done
 			for _,mz := range mz {
-				PrintMaxPeak(scan, &scanevents[s], &scanindexentries[s], mz, tol)
+				PrintMaxPeak(scan, &scanevents[i], &s, mz, tol)
 			}
 		}
 	} else {
-		for s := range scanindexentries {
+		for i := range scanindexentries {
 			scan := new(unthermo.ScanDataPacket)
-			unthermo.ReadFile(fn, rh.DataAddr+scanindexentries[s].Offset, 0, scan)
+			unthermo.ReadFile(fn, rh.DataAddr+scanindexentries[i].Offset, 0, scan)
 			for _,mz := range mz {
-				PrintMaxPeak(scan, &scanevents[s], &scanindexentries[s], mz, tol)
+				PrintMaxPeak(scan, &scanevents[i], &scanindexentries[i], mz, tol)
 			}
 		}
 	}
