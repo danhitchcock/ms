@@ -8,47 +8,6 @@ import (
 	"bytes"
 )
 
-func ExecOnScan(fn string, mem bool, fun func(*ScanDataPacket, *ScanEvent, *ScanIndexEntry)) {
-	//Read necessary headers
-	info, ver := ReadFileHeaders(fn)
-	rh := new(RunHeader)
-	ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
-
-	//For later conversion of frequency values to m/z, we need a ScanEvent
-	//for each Scan.
-	//The list of them starts an uint32 later than ScantrailerAddr
-	nScans := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
-	scanevents := make(Scanevents, nScans)
-	ReadFileRange(fn, rh.ScantrailerAddr+4, rh.ScanparamsAddr, ver, scanevents)
-
-	//read all scanindexentries (for retention time) at once,
-	//this is probably the fastest
-	scanindexentries := make(ScanIndexEntries, nScans)
-	ReadFileRange(fn, rh.ScanindexAddr, rh.ScantrailerAddr, ver, scanindexentries)
-
-	if mem {
-		//create channels to share memory with library
-		offset := make(chan uint64)
-		scans := make(chan *ScanDataPacket)
-
-		//send off library to wait for work
-		go ReadScansFromMemory(fn, rh.DataAddr, rh.OwnAddr, 0, offset, scans)
-
-		for i, s := range scanindexentries {
-			offset <- s.Offset //send location of data structure
-			scan := <-scans    //receive pointer back when library is done
-			fun(scan, &scanevents[i], &s)
-		}
-	} else {
-		for i := range scanindexentries {
-			scan := new(ScanDataPacket)
-			ReadFile(fn, rh.DataAddr+scanindexentries[i].Offset, 0, scan)
-			fun(scan, &scanevents[i], &scanindexentries[i])
-		}
-	}
-}
-
-
 //Reads the range in memory, then waits for scan packet offsets
 //when the scan packet is read, send it back on the out channel
 func ReadScansFromMemory(fn string, begin uint64, end uint64, v Version, in <-chan uint64, out chan<- *ScanDataPacket) {

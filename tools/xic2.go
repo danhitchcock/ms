@@ -33,11 +33,6 @@ import (
 	"strings"
 )
 
-type MS struct {
-	mz float64
-	I  float32
-}
-
 //argument parsing
 type mzarg []float64 //a new type for passing flags on the command line
 
@@ -65,110 +60,31 @@ func main() {
 	flag.BoolVar(&mem, "m", false, "read all scans in memory for a speed gain")
 	flag.Parse()
 
-	xic := func(scan *unthermo.ScanDataPacket,
-		scanevent *unthermo.ScanEvent, sie *unthermo.ScanIndexEntry) {
+	xic := func(scan []unthermo.MS) {
 		for _, mz := range mz {
-			var m []MS
+			var m []unthermo.MS
 
 			//convert Hz values into m/z and save the signals within range
-			for i := uint32(0); i < scan.Profile.PeakCount; i++ {
-				for j := uint32(0); j < scan.Profile.Chunks[i].Nbins; j++ {
-					tmpmz := scanevent.Convert(scan.Profile.FirstValue+
-						float64(scan.Profile.Chunks[i].Firstbin+j)*scan.Profile.Step) +
-						float64(scan.Profile.Chunks[i].Fudge)
-					if tmpmz <= mz+10e-6*tol*mz && tmpmz >= mz-10e-6*tol*mz {
-						m = append(m, MS{tmpmz,
-							scan.Profile.Chunks[i].Signal[j]})
+			for _, ms := range scan {
+				if ms.Mz <= mz+10e-6*tol*mz && ms.Mz >= mz-10e-6*tol*mz {
+						m = append(m, ms)
 					}
-				}
 			}
 
-			//print the maximum signal
+			//print the maximum signal of what is saved
 			if len(m) > 0 {
-				var maxIn MS
+				var maxIn unthermo.MS
 				for i := range m {
 					if m[i].I > maxIn.I {
 						maxIn = m[i]
 					}
 				}
-				fmt.Println(mz, sie.Time, maxIn.I)
+				fmt.Println(mz, maxIn.Time, maxIn.I)
 			}
-		}
+	}	
 	}
 
 	for _, filename := range flag.Args() {
-		XIC(filename, mz, tol, mem)
-	}
-}
-
-func XIC(fn string, mz mzarg, tol float64, mem bool) {
-	//Read necessary headers
-	info, ver := unthermo.ReadFileHeaders(fn)
-	rh := new(unthermo.RunHeader)
-	unthermo.ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
-
-	//For later conversion of frequency values to m/z, we need a ScanEvent
-	//for each Scan.
-	//The list of them starts an uint32 later than ScantrailerAddr
-	nScans := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
-	scanevents := make(unthermo.Scanevents, nScans)
-	unthermo.ReadFileRange(fn, rh.ScantrailerAddr+4, rh.ScanparamsAddr, ver, scanevents)
-
-	//read all scanindexentries (for retention time) at once,
-	//this is probably the fastest
-	scanindexentries := make(unthermo.ScanIndexEntries, nScans)
-	unthermo.ReadFileRange(fn, rh.ScanindexAddr, rh.ScantrailerAddr, ver, scanindexentries)
-
-	if mem {
-		//create channels to share memory with library
-		offset := make(chan uint64)
-		scans := make(chan *unthermo.ScanDataPacket)
-
-		//send off library to wait for work
-		go unthermo.ReadScansFromMemory(fn, rh.DataAddr, rh.OwnAddr, 0, offset, scans)
-
-		for i, s := range scanindexentries {
-			offset <- s.Offset //send location of data structure
-			scan := <-scans    //receive pointer back when library is done
-			for _, mz := range mz {
-				PrintMaxPeak(scan, &scanevents[i], &s, mz, tol)
-			}
-		}
-	} else {
-		for i := range scanindexentries {
-			scan := new(unthermo.ScanDataPacket)
-			unthermo.ReadFile(fn, rh.DataAddr+scanindexentries[i].Offset, 0, scan)
-			for _, mz := range mz {
-				PrintMaxPeak(scan, &scanevents[i], &scanindexentries[i], mz, tol)
-			}
-		}
-	}
-}
-
-func PrintMaxPeak(scan *unthermo.ScanDataPacket, scanevent *unthermo.ScanEvent, sie *unthermo.ScanIndexEntry, mz float64, tol float64) {
-	var m []MS
-
-	//convert Hz values into m/z and save the signals within range
-	for i := uint32(0); i < scan.Profile.PeakCount; i++ {
-		for j := uint32(0); j < scan.Profile.Chunks[i].Nbins; j++ {
-			tmpmz := scanevent.Convert(scan.Profile.FirstValue+
-				float64(scan.Profile.Chunks[i].Firstbin+j)*scan.Profile.Step) +
-				float64(scan.Profile.Chunks[i].Fudge)
-			if tmpmz <= mz+10e-6*tol*mz && tmpmz >= mz-10e-6*tol*mz {
-				m = append(m, MS{tmpmz,
-					scan.Profile.Chunks[i].Signal[j]})
-			}
-		}
-	}
-
-	//print the maximum signal
-	if len(m) > 0 {
-		var maxIn MS
-		for i := range m {
-			if m[i].I > maxIn.I {
-				maxIn = m[i]
-			}
-		}
-		fmt.Println(mz, sie.Time, maxIn.I)
+		unthermo.OnPeaks(filename, mem, xic)
 	}
 }
