@@ -1,7 +1,7 @@
 /*XIC prints mass chromatograms for given m/z's.
 
   For every m/z given, it prints the peak with highest intensity in interval
-  [mz-tol ppm,mz+tol ppm] for every profile-mode scan.
+  [mz-tol ppm,mz+tol ppm] for every MS-1 scan.
 
   Every line contains the mass, retention time and intensity of a peak
 
@@ -69,14 +69,12 @@ func init() {
  */
 func main() {
 	for _, filename := range flag.Args() {
-		//The library is now called
-		//Specifying which function gets called on each MS 1 Scan read,
-		//this time "xic", specified below
+		//xic gets called on each MS1 Scan read by the unthermo library
 		unthermo.OnAllScans(filename, mem, 1, xic)
 	}
 }
 
-//OnAllScans last argument is a function with the following signature
+//Algorithm calculating and outputting the peaks belonging to the XIC's
 var xic = func(spectrum unthermo.Spectrum) {
 	//for every mz in the argument list
 	for _, mz := range mzs {
