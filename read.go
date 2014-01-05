@@ -784,27 +784,6 @@ type RawFileInfo struct {
 	Unknown1 PascalString
 }
 
-type PascalString struct {
-	Length int32
-	Text   []uint16
-}
-
-func (t PascalString) String() string {
-	return string(utf16.Decode(t.Text[:]))
-}
-
-//Wrapper around binary.Read, reads both PascalStrings and structs from r
-func Read(r io.Reader, data interface{}) {
-	switch v := data.(type) {
-	case *PascalString:
-		binary.Read(r, binary.LittleEndian, &v.Length)
-		v.Text = make([]uint16, v.Length)
-		binary.Read(r, binary.LittleEndian, &v.Text)
-	default:
-		binary.Read(r, binary.LittleEndian, v)
-	}
-}
-
 type InfoPreamble struct {
 	Methodfilepresent uint32
 	Year              uint16
@@ -832,6 +811,27 @@ type InfoPreamble struct {
 	RunHeaderAddr []uint64
 	Unknown7      []uint64
 	Padding2      [1032]byte //1024 bytes, 1008 bytes in v64
+}
+
+type PascalString struct {
+	Length int32
+	Text   []uint16
+}
+
+func (t PascalString) String() string {
+	return string(utf16.Decode(t.Text[:]))
+}
+
+//Wrapper around binary.Read, reads both PascalStrings and structs from r
+func Read(r io.Reader, data interface{}) {
+	switch v := data.(type) {
+	case *PascalString:
+		binary.Read(r, binary.LittleEndian, &v.Length)
+		v.Text = make([]uint16, v.Length)
+		binary.Read(r, binary.LittleEndian, &v.Text)
+	default:
+		binary.Read(r, binary.LittleEndian, v)
+	}
 }
 
 /*
