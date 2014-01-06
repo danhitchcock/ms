@@ -15,7 +15,7 @@ func main() {
 	unthermo.Scan(filename, uint64(scannumber), prettyprint)
 }
 
-//Print time, mz and Intensity of every peak in spectrum
+//Print mz and Intensity of every peak in spectrum
 var prettyprint = func(spectrum unthermo.Spectrum) {
 	for _, peak := range spectrum {
 		fmt.Println(peak.Mz, peak.I)
