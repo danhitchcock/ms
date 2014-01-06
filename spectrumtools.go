@@ -1,5 +1,7 @@
 package unthermo
 
+import "log"
+
 type Peak struct {
 	Time float64
 	Mz   float64
@@ -39,7 +41,7 @@ func OnAllScans(fn string, mem bool, mslev uint8, fun func(Spectrum)) {
 			if sevs[i].Preamble[6] == mslev {
 				offset <- sie.Offset //send location of data structure
 				scan := <-scans      //receive pointer back when library is done
-				OnScan(scan, &sevs[i], &sie, fun)
+				onScan(scan, &sevs[i], &sie, fun)
 			}
 		}
 	} else {
@@ -47,13 +49,13 @@ func OnAllScans(fn string, mem bool, mslev uint8, fun func(Spectrum)) {
 			if sevs[i].Preamble[6] == mslev {
 				scan := new(ScanDataPacket)
 				ReadFile(fn, rh.DataAddr+sie.Offset, 0, scan)
-				OnScan(scan, &sevs[i], &sie, fun)
+				onScan(scan, &sevs[i], &sie, fun)
 			}
 		}
 	}
 }
 
-func OnScan(rawscan *ScanDataPacket, scanevent *ScanEvent,
+func onScan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 	sie *ScanIndexEntry, fun func(Spectrum)) {
 
 	var spectrum Spectrum
@@ -77,4 +79,66 @@ func OnScan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 	}
 
 	fun(spectrum)
+}
+
+func OnScan(fn string, sn uint64, fun func(Spectrum)) {
+	info, ver := ReadFileHeaders(fn)
+
+	rh := new(RunHeader)
+	ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
+
+	//the MS RunHeader contains besides general info three interesting
+	//addresses: ScanindexAddr (with the scan headers), DataAddr,
+	//and ScantrailerAddr (which includes orbitrap Hz-m/z conversion
+	//parameters and info about the scans)
+
+	if sn < uint64(rh.SampleInfo.FirstScanNumber) || sn > uint64(rh.SampleInfo.LastScanNumber) {
+		log.Fatal("scan number out of range: ", rh.SampleInfo.FirstScanNumber, ", ", rh.SampleInfo.LastScanNumber)
+	}
+
+	//read the n'th ScanIndexEntry
+	sie := new(ScanIndexEntry)
+	ReadFile(fn, rh.ScanindexAddr+(sn-1)*sie.Size(ver), ver, sie)
+
+	//For later conversion of frequency values to m/z, we need a ScanEvent
+	//The list of them starts 4 bytes later than ScantrailerAddr
+	pos := rh.ScantrailerAddr + 4
+
+	//the ScanEvents are of variable size and have no pointer to
+	//them, we need to read at least all the ones preceding n
+	scanevent := new(ScanEvent)
+	for i := uint64(0); i < sn; i++ {
+		pos = ReadFile(fn, pos, ver, scanevent)
+	}
+
+	//read Scan Packet for the above scan number
+	scan := new(ScanDataPacket)
+	ReadFile(fn, rh.DataAddr+sie.Offset, 0, scan)
+
+	onScan(scan, scanevent, sie, fun)
+}
+
+
+//@pre instr>0. in other words: not the mass spectrometer
+func OnOther(fn string, instr int, fun func(CDataPackets)) {
+	info, ver := ReadFileHeaders(fn)
+
+	if uint32(instr) > info.Preamble.NControllers-1 {
+		log.Fatal(instr, " is higher than number of extra controllers: ", info.Preamble.NControllers-1)
+	}
+
+	rh := new(RunHeader)
+	ReadFile(fn, info.Preamble.RunHeaderAddr[instr], ver, rh)
+
+	//The instrument RunHeader contains an interesting address: DataAddr
+	//There is another address ScanIndexAddr, which points to CIndexEntry
+	//containers at ScanIndexAddr. Less data can be read for now
+
+	nScan := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
+	cdata := make(CDataPackets, nScan)
+	for i := uint64(0); i < nScan; i++ {
+		ReadFile(fn, rh.DataAddr+i*16, ver, &cdata[i]) //16 bytes of CDataPacket
+	}
+	
+	fun(cdata)
 }
