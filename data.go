@@ -11,7 +11,7 @@ type Peak struct {
 type Spectrum []Peak
 
 //On every encountered MS Scan, the function fun is called
-func OnAllScans(fn string, mem bool, mslev uint8, fun func(Spectrum)) {
+func AllScans(fn string, mem bool, mslev uint8, fun func(Spectrum)) {
 	//Read necessary headers
 	info, ver := ReadFileHeaders(fn)
 	rh := new(RunHeader)
@@ -40,22 +40,22 @@ func OnAllScans(fn string, mem bool, mslev uint8, fun func(Spectrum)) {
 		for i, sie := range sies {
 			if sevs[i].Preamble[6] == mslev {
 				offset <- sie.Offset //send location of data structure
-				scan := <-scans      //receive pointer back when library is done
-				onScan(scan, &sevs[i], &sie, fun)
+				scn := <-scans      //receive pointer back when library is done
+				scan(scn, &sevs[i], &sie, fun)
 			}
 		}
 	} else {
 		for i, sie := range sies {
 			if sevs[i].Preamble[6] == mslev {
-				scan := new(ScanDataPacket)
-				ReadFile(fn, rh.DataAddr+sie.Offset, 0, scan)
-				onScan(scan, &sevs[i], &sie, fun)
+				scn := new(ScanDataPacket)
+				ReadFile(fn, rh.DataAddr+sie.Offset, 0, scn)
+				scan(scn, &sevs[i], &sie, fun)
 			}
 		}
 	}
 }
 
-func onScan(rawscan *ScanDataPacket, scanevent *ScanEvent,
+func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 	sie *ScanIndexEntry, fun func(Spectrum)) {
 
 	var spectrum Spectrum
@@ -81,7 +81,7 @@ func onScan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 	fun(spectrum)
 }
 
-func OnScan(fn string, sn uint64, fun func(Spectrum)) {
+func Scan(fn string, sn uint64, fun func(Spectrum)) {
 	info, ver := ReadFileHeaders(fn)
 
 	rh := new(RunHeader)
@@ -112,15 +112,15 @@ func OnScan(fn string, sn uint64, fun func(Spectrum)) {
 	}
 
 	//read Scan Packet for the above scan number
-	scan := new(ScanDataPacket)
-	ReadFile(fn, rh.DataAddr+sie.Offset, 0, scan)
+	scn := new(ScanDataPacket)
+	ReadFile(fn, rh.DataAddr+sie.Offset, 0, scn)
 
-	onScan(scan, scanevent, sie, fun)
+	scan(scn, scanevent, sie, fun)
 }
 
 
 //@pre instr>0. in other words: not the mass spectrometer
-func OnOther(fn string, instr int, fun func(CDataPackets)) {
+func Chromatography(fn string, instr int, fun func(CDataPackets)) {
 	info, ver := ReadFileHeaders(fn)
 
 	if uint32(instr) > info.Preamble.NControllers-1 {
