@@ -1,6 +1,9 @@
 package unthermo
 
-import "log"
+import (
+	"log"
+	"sort"
+)
 
 type Peak struct {
 	Time float64
@@ -9,6 +12,11 @@ type Peak struct {
 }
 
 type Spectrum []Peak
+
+//Spectrum implements sort.Interface for []Peak based on m/z
+func (a Spectrum) Len() int           { return len(a) }
+func (a Spectrum) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a Spectrum) Less(i, j int) bool { return a[i].Mz < a[j].Mz }
 
 //On every encountered MS Scan, the function fun is called
 func AllScans(fn string, mem bool, mslev uint8, fun func(Spectrum)) {
@@ -40,7 +48,7 @@ func AllScans(fn string, mem bool, mslev uint8, fun func(Spectrum)) {
 		for i, sie := range sies {
 			if sevs[i].Preamble[6] == mslev {
 				offset <- sie.Offset //send location of data structure
-				scn := <-scans      //receive pointer back when library is done
+				scn := <-scans       //receive pointer back when library is done
 				scan(scn, &sevs[i], &sie, fun)
 			}
 		}
@@ -78,6 +86,7 @@ func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 				I: rawscan.PeakList.Peaks[i].Abundance})
 	}
 
+	sort.Sort(spectrum)
 	fun(spectrum)
 }
 
@@ -118,7 +127,6 @@ func Scan(fn string, sn uint64, fun func(Spectrum)) {
 	scan(scn, scanevent, sie, fun)
 }
 
-
 //@pre instr>0. in other words: not the mass spectrometer
 func Chromatography(fn string, instr int, fun func(CDataPackets)) {
 	info, ver := ReadFileHeaders(fn)
@@ -139,6 +147,6 @@ func Chromatography(fn string, instr int, fun func(CDataPackets)) {
 	for i := uint64(0); i < nScan; i++ {
 		ReadFile(fn, rh.DataAddr+i*16, ver, &cdata[i]) //16 bytes of CDataPacket
 	}
-	
+
 	fun(cdata)
 }
