@@ -18,6 +18,6 @@ func main() {
 //Print time, mz and Intensity of every peak in spectrum
 var prettyprint = func(spectrum unthermo.Spectrum) {
 	for _, peak := range spectrum {
-		fmt.Println(peak.Time, peak.Mz, peak.I)
+		fmt.Println(peak.Mz, peak.I)
 	}
 }
