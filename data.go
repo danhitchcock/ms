@@ -23,7 +23,15 @@ func AllScans(fn string, mem bool, mslev uint8, fun func(Spectrum)) {
 	//Read necessary headers
 	info, ver := ReadFileHeaders(fn)
 	rh := new(RunHeader)
-	ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
+	
+	//read runheaders until we have a non-empty Scantrailer Address
+	//indicating it is the runheader for a MS device (not a chromatography device)
+	for i := 0; i < len(info.Preamble.RunHeaderAddr) && rh.ScantrailerAddr == 0; i++ {
+		ReadFile(fn, info.Preamble.RunHeaderAddr[i], ver, rh)
+	}
+	if rh.ScantrailerAddr == 0 {
+		log.Fatal("Couldn't find MS run header in file at positions ", info.Preamble.RunHeaderAddr)
+	}
 
 	//For later conversion of frequency values to m/z, we need a ScanEvent
 	//for each Scan.
@@ -94,8 +102,16 @@ func Scan(fn string, sn uint64, fun func(Spectrum)) {
 	info, ver := ReadFileHeaders(fn)
 
 	rh := new(RunHeader)
-	ReadFile(fn, info.Preamble.RunHeaderAddr[0], ver, rh)
-
+	
+	//read runheaders until we have a non-empty Scantrailer Address
+	//indicating it is the runheader for a MS device (not a chromatography device)
+	for i := 0; i < len(info.Preamble.RunHeaderAddr) && rh.ScantrailerAddr == 0; i++ {
+		ReadFile(fn, info.Preamble.RunHeaderAddr[i], ver, rh)
+	}
+	if rh.ScantrailerAddr == 0 {
+		log.Fatal("Couldn't find MS run header in file at positions ", info.Preamble.RunHeaderAddr)
+	}
+	
 	//the MS RunHeader contains besides general info three interesting
 	//addresses: ScanindexAddr (with the scan headers), DataAddr,
 	//and ScantrailerAddr (which includes orbitrap Hz-m/z conversion
@@ -127,7 +143,7 @@ func Scan(fn string, sn uint64, fun func(Spectrum)) {
 	scan(scn, scanevent, sie, fun)
 }
 
-//@pre instr>0. in other words: not the mass spectrometer
+
 func Chromatography(fn string, instr int, fun func(CDataPackets)) {
 	info, ver := ReadFileHeaders(fn)
 
@@ -137,6 +153,10 @@ func Chromatography(fn string, instr int, fun func(CDataPackets)) {
 
 	rh := new(RunHeader)
 	ReadFile(fn, info.Preamble.RunHeaderAddr[instr], ver, rh)
+	//The ScantrailerAddr has to be 0. in other words: we're not looking at the MS runheader
+	if rh.ScantrailerAddr != 0 {
+		log.Fatal("You selected the MS instrument, no chromatography data can be read.")
+	}
 
 	//The instrument RunHeader contains an interesting address: DataAddr
 	//There is another address ScanIndexAddr, which points to CIndexEntry
