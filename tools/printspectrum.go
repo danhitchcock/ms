@@ -2,14 +2,14 @@ package main
 
 import (
 	"bitbucket.org/proteinspector/unthermo"
+	"fmt"
 	"os"
 	"strconv"
-	"fmt"
 )
 
 func main() {
 	//Parse arguments
-	scannumber,_ := strconv.Atoi(os.Args[1])
+	scannumber, _ := strconv.Atoi(os.Args[1])
 	filename := os.Args[2]
 	//Execute Scan with argument prettyprint
 	unthermo.Scan(filename, uint64(scannumber), prettyprint)

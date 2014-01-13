@@ -1,5 +1,5 @@
-# Package unthermo, reading Thermo Finnigan RAW files
-after [unfinnigan](http://code.google.com/p/unfinnigan/wiki/FileLayoutOverview)
+# unthermo, reading Thermo Finnigan RAW files without libraries
+a successor to [unfinnigan](http://code.google.com/p/unfinnigan/wiki/FileLayoutOverview)
 
 ## Usable tools:
 
