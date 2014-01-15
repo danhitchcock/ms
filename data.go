@@ -23,7 +23,7 @@ func AllScans(fn string, mem bool, mslev uint8, fun func(Spectrum)) {
 	//Read necessary headers
 	info, ver := ReadFileHeaders(fn)
 	rh := new(RunHeader)
-	
+
 	//read runheaders until we have a non-empty Scantrailer Address
 	//indicating it is the runheader for a MS device (not a chromatography device)
 	for i := 0; i < len(info.Preamble.RunHeaderAddr) && rh.ScantrailerAddr == 0; i++ {
@@ -76,22 +76,25 @@ func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 
 	var spectrum Spectrum
 
-	//convert Hz values into m/z and save the profile peaks
-	for i := uint32(0); i < rawscan.Profile.PeakCount; i++ {
-		for j := uint32(0); j < rawscan.Profile.Chunks[i].Nbins; j++ {
-			tmpmz := scanevent.Convert(rawscan.Profile.FirstValue+
-				float64(rawscan.Profile.Chunks[i].Firstbin+j)*rawscan.Profile.Step) +
-				float64(rawscan.Profile.Chunks[i].Fudge)
-			spectrum = append(spectrum,
-				Peak{Time: sie.Time, Mz: tmpmz, I: rawscan.Profile.Chunks[i].Signal[j]})
+	if rawscan.Profile.PeakCount > 0 {
+		//convert Hz values into m/z and save the profile peaks
+		for i := uint32(0); i < rawscan.Profile.PeakCount; i++ {
+			for j := uint32(0); j < rawscan.Profile.Chunks[i].Nbins; j++ {
+				tmpmz := scanevent.Convert(rawscan.Profile.FirstValue+
+					float64(rawscan.Profile.Chunks[i].Firstbin+j)*rawscan.Profile.Step) +
+					float64(rawscan.Profile.Chunks[i].Fudge)
+				spectrum = append(spectrum,
+					Peak{Time: sie.Time, Mz: tmpmz, I: rawscan.Profile.Chunks[i].Signal[j]})
+			}
 		}
-	}
-
-	//Also save the Centroided Peaks (they also occur in profile scans!?)
-	for i := uint32(0); i < rawscan.PeakList.Count; i++ {
-		spectrum = append(spectrum,
-			Peak{Time: sie.Time, Mz: float64(rawscan.PeakList.Peaks[i].Mz),
-				I: rawscan.PeakList.Peaks[i].Abundance})
+	} else {
+		//Save the Centroided Peaks, they also occur in profile scans but
+		//overlap with profiles, Thermo always does centroiding just for fun
+		for i := uint32(0); i < rawscan.PeakList.Count; i++ {
+			spectrum = append(spectrum,
+				Peak{Time: sie.Time, Mz: float64(rawscan.PeakList.Peaks[i].Mz),
+					I: rawscan.PeakList.Peaks[i].Abundance})
+		}
 	}
 
 	sort.Sort(spectrum)
@@ -102,7 +105,7 @@ func Scan(fn string, sn uint64, fun func(Spectrum)) {
 	info, ver := ReadFileHeaders(fn)
 
 	rh := new(RunHeader)
-	
+
 	//read runheaders until we have a non-empty Scantrailer Address
 	//indicating it is the runheader for a MS device (not a chromatography device)
 	for i := 0; i < len(info.Preamble.RunHeaderAddr) && rh.ScantrailerAddr == 0; i++ {
@@ -111,7 +114,7 @@ func Scan(fn string, sn uint64, fun func(Spectrum)) {
 	if rh.ScantrailerAddr == 0 {
 		log.Fatal("Couldn't find MS run header in file at positions ", info.Preamble.RunHeaderAddr)
 	}
-	
+
 	//the MS RunHeader contains besides general info three interesting
 	//addresses: ScanindexAddr (with the scan headers), DataAddr,
 	//and ScantrailerAddr (which includes orbitrap Hz-m/z conversion
@@ -142,7 +145,6 @@ func Scan(fn string, sn uint64, fun func(Spectrum)) {
 
 	scan(scn, scanevent, sie, fun)
 }
-
 
 func Chromatography(fn string, instr int, fun func(CDataPackets)) {
 	info, ver := ReadFileHeaders(fn)

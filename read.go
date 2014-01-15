@@ -251,7 +251,7 @@ func (data *ScanIndexEntry) Read(r io.Reader, v Version) {
 		Read(r, data)
 	} else if v == 64 {
 		Read(r, &data.Offset32)
-		Read(r, &data.Index)
+		Read(r, &data.Index) //starts from 0
 		Read(r, &data.Scanevent)
 		Read(r, &data.Scansegment)
 		Read(r, &data.Next)
@@ -266,7 +266,7 @@ func (data *ScanIndexEntry) Read(r io.Reader, v Version) {
 		Read(r, &data.Offset)
 	} else {
 		Read(r, &data.Offset32)
-		Read(r, &data.Index)
+		Read(r, &data.Index) //starts from 0
 		Read(r, &data.Scanevent)
 		Read(r, &data.Scansegment)
 		Read(r, &data.Next)
