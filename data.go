@@ -2,7 +2,6 @@ package unthermo
 
 import (
 	"log"
-	"sort"
 )
 
 type Peak struct {
@@ -97,7 +96,6 @@ func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 		}
 	}
 
-	sort.Sort(spectrum)
 	fun(spectrum)
 }
 

@@ -90,7 +90,7 @@ var xic = func(spectrum unthermo.Spectrum) {
 		if len(specWithinTol) > 0 {
 			var maxIn unthermo.Peak
 			for _, peak := range specWithinTol {
-				if peak.I > maxIn.I {
+				if peak.I >= maxIn.I {
 					maxIn = peak
 				}
 			}
