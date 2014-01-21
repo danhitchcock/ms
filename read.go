@@ -30,24 +30,33 @@ func (data *ScanDataPacket) Read(r io.Reader, v Version) {
 		Read(r, &data.Profile.PeakCount)
 		Read(r, &data.Profile.Nbins)
 
+		data.Profile.Chunks = make([]ProfileChunk, data.Profile.PeakCount)
+
 		for i := uint32(0); i < data.Profile.PeakCount; i++ {
 			Read(r, &data.Profile.Chunks[i].Firstbin)
 			Read(r, &data.Profile.Chunks[i].Nbins)
 			if data.Header.Layout > 0 {
 				Read(r, &data.Profile.Chunks[i].Fudge)
 			}
-			Read(r, data.Profile.Chunks[i].Signal[:data.Profile.Chunks[i].Nbins])
+			data.Profile.Chunks[i].Signal = make([]float32, data.Profile.Chunks[i].Nbins)
+			Read(r, data.Profile.Chunks[i].Signal)
 		}
 	}
 
 	if data.Header.PeaklistSize > 0 {
 		Read(r, &data.PeakList.Count)
-		Read(r, data.PeakList.Peaks[:data.PeakList.Count])
+		data.PeakList.Peaks = make([]CentroidedPeak, data.PeakList.Count)
+		Read(r, data.PeakList.Peaks)
 	}
 
-	Read(r, data.DescriptorList[:data.Header.DescriptorListSize])
-	Read(r, data.Unknown[:data.Header.UnknownStreamSize])
-	Read(r, data.Triplets[:data.Header.TripletStreamSize])
+	data.DescriptorList = make([]PeakDescriptor, data.Header.DescriptorListSize)
+	Read(r, data.DescriptorList)
+	
+	data.Unknown = make([]float32, data.Header.UnknownStreamSize)
+	Read(r, data.Unknown)
+	
+	data.Triplets = make([]float32, data.Header.TripletStreamSize)
+	Read(r, data.Triplets)
 
 }
 
@@ -55,9 +64,9 @@ type ScanDataPacket struct {
 	Header         PacketHeader
 	Profile        Profile
 	PeakList       PeakList
-	DescriptorList [8192]PeakDescriptor //arbitrary size to preallocate memory
-	Unknown        [8192]float32        //arbitrary size, can be too small
-	Triplets       [2048]float32        //arbitrary size, can be too small
+	DescriptorList []PeakDescriptor
+	Unknown        []float32
+	Triplets       []float32
 }
 
 type PeakDescriptor struct {
@@ -67,7 +76,7 @@ type PeakDescriptor struct {
 }
 type PeakList struct {
 	Count uint32
-	Peaks [8192]CentroidedPeak //arbitrary size, can be too small
+	Peaks []CentroidedPeak
 }
 
 type CentroidedPeak struct {
@@ -93,14 +102,14 @@ type Profile struct {
 	Step       float64
 	PeakCount  uint32
 	Nbins      uint32
-	Chunks     [8192]ProfileChunk //arbitrary size, can be too small
+	Chunks     []ProfileChunk
 }
 
 type ProfileChunk struct {
 	Firstbin uint32
 	Nbins    uint32
 	Fudge    float32
-	Signal   [128]float32 //arbitrary size, can be too small
+	Signal   []float32
 }
 
 /*
