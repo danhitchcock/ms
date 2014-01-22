@@ -433,6 +433,7 @@ func (data *RunHeader) Read(r io.Reader, v Version) {
 	data.ErrorlogAddr = uint64(data.SampleInfo.ErrorlogAddr)
 	data.ScantrailerAddr = uint64(data.ScantrailerAddr32)
 	data.ScanparamsAddr = uint64(data.ScanparamsAddr32)
+	data.OwnAddr = uint64(data.OwnAddr32)
 
 	if v >= 64 {
 		Read(r, &data.ScanindexAddr)
