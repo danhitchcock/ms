@@ -7,18 +7,57 @@ import (
 	"os"
 )
 
-//interface shared by all data objects in the raw file
-type Reader interface {
-	Read(io.Reader, Version)
+//the file itself 
+var file io.Reader
+//scanevents is the general index for the scans
+var scanevents ScanEvents
+//scanindexentries is an additional index containing more info about the scans
+var scanindexentries ScanIndexEntries
+//flag that is true when the whole file resides in memory (faster for Windows machines)
+var mem bool
+
+/* Reads the indices from the RAW file in memory
+ * it takes multiple options as arguments
+ * first option is the file name
+ * if the second option is "mem", the raw file will completely be loaded in memory
+ */
+func Open(options ...string) {
+	//Set options:
+	fn := options[0]
+	if options[1] == "mem" {
+		mem = true
+	}
+	
+	
+	//Read headers for file version and RunHeader addresses.
+	info, ver := ReadFileHeaders(fn)
+	rh := new(RunHeader)
+
+	//read runheaders until we have a non-empty Scantrailer Address
+	//indicating it is the runheader for a MS device (not a chromatography device)
+	for i := 0; i < len(info.Preamble.RunHeaderAddr) && rh.ScantrailerAddr == 0; i++ {
+		ReadFile(fn, info.Preamble.RunHeaderAddr[i], ver, rh)
+	}
+	if rh.ScantrailerAddr == 0 {
+		log.Fatal("Couldn't find MS run header in file at positions ", info.Preamble.RunHeaderAddr)
+	}
+
+	//For later conversion of frequency values to m/z, we need a ScanEvent
+	//for each Scan.
+	//The list of them starts an uint32 later than ScantrailerAddr
+	nScans := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
+	scanevents = make(ScanEvents, nScans)
+	ReadFileRange(fn, rh.ScantrailerAddr+4, rh.ScanparamsAddr, ver, scanevents)
+
+	//read all scanindexentries (for retention time) at once,
+	scanindexentries = make(ScanIndexEntries, nScans)
+	ReadFileRange(fn, rh.ScanindexAddr, rh.ScantrailerAddr, ver, scanindexentries)
 }
 
 //Opens a Version v Thermo File, starting at position pos, reads
 //data, and returns the position in the file afterwards
-func ReadFile(fn string, pos uint64, v Version, data Reader) uint64 {
-	file, err := os.Open(fn)
-	if err != nil {
-		log.Fatal("error opening file", err)
-	}
+func ReadFile(pos uint64, v Version, data Reader) uint64 {
+	
 	defer file.Close()
 	spos, err := file.Seek(int64(pos), 0)
 	if err != nil {

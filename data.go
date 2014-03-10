@@ -12,12 +12,31 @@ type Peak struct {
 
 type Spectrum []Peak
 
+type Scann struct {
+	Spectrum
+	Mslevel uint8
+	Activation Activation
+}
+	
+type Activation int
+
+const (
+        CID Activation = iota
+        HCD
+)
+
 //Spectrum implements sort.Interface for []Peak based on m/z
 func (a Spectrum) Len() int           { return len(a) }
 func (a Spectrum) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a Spectrum) Less(i, j int) bool { return a[i].Mz < a[j].Mz }
 
-//On every encountered MS Scan, the function fun is called
+/*
+ * Convenience function that runs over all spectra in the raw file
+ * 
+ * On every encountered MS Scan, the function fun is called
+ * 
+ * if mem is true, the raw file will be loaded in memory
+ */
 func AllScans(fn string, mem bool, mslev uint8, fun func(Spectrum)) {
 	//Read necessary headers
 	info, ver := ReadFileHeaders(fn)
@@ -36,7 +55,7 @@ func AllScans(fn string, mem bool, mslev uint8, fun func(Spectrum)) {
 	//for each Scan.
 	//The list of them starts an uint32 later than ScantrailerAddr
 	nScans := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
-	sevs := make(Scanevents, nScans)
+	sevs := make(ScanEvents, nScans)
 	ReadFileRange(fn, rh.ScantrailerAddr+4, rh.ScanparamsAddr, ver, sevs)
 
 	//read all scanindexentries (for retention time) at once,
@@ -99,7 +118,7 @@ func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 	fun(spectrum)
 }
 
-func Scan(fn string, sn uint64, fun func(Spectrum)) {
+func Scan(sn uint64) Scan {
 	info, ver := ReadFileHeaders(fn)
 
 	rh := new(RunHeader)

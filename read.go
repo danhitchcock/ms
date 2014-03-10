@@ -8,6 +8,11 @@ import (
 	"unicode/utf16"
 )
 
+//interface shared by all data objects in the raw file
+type Reader interface {
+	Read(io.Reader, Version)
+}
+
 /*
  * ScanDataPackets is a list of MS scan packets, containing Centroid Peak
  * or Profile intensities
@@ -128,9 +133,9 @@ func (data *TrailerLength) Read(r io.Reader, v Version) {
  * conversion parameters from Hz to m/z
  */
 
-type Scanevents []ScanEvent
+type ScanEvents []ScanEvent
 
-func (data Scanevents) Read(r io.Reader, v Version) {
+func (data ScanEvents) Read(r io.Reader, v Version) {
 	for i := range data {
 		data[i].Read(r, v)
 	}
