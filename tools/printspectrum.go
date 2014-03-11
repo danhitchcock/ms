@@ -11,13 +11,14 @@ func main() {
 	//Parse arguments
 	scannumber, _ := strconv.Atoi(os.Args[1])
 	filename := os.Args[2]
+	unthermo.Open(filename)
 	//Execute Scan with argument prettyprint
-	unthermo.Scan(filename, uint64(scannumber), prettyprint)
+	prettyprint(unthermo.ScanAt(uint64(scannumber)))
 }
 
 //Print mz and Intensity of every peak in spectrum
-var prettyprint = func(spectrum unthermo.Spectrum) {
-	for _, peak := range spectrum {
+func prettyprint(scan unthermo.Scan) {
+	for _, peak := range scan.Spectrum {
 		fmt.Println(peak.Mz, peak.I)
 	}
 }
