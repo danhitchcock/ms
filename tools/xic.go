@@ -5,11 +5,8 @@
 
   Every line contains the mass, retention time and intensity of a peak
 
-  Reading can be sped up on systems with large memory by loading all scans
-  in RAM. Add flag -m on the command line for this.
-
   Example:
-      xic -m -mz 361.1466 -mz 445.1200 -tol 2.5 rawfile.raw
+      xic -mz 361.1466 -mz 445.1200 -tol 2.5 rawfile.raw
 
   Output:
       361.1466 0.003496666666666667 10500.583
@@ -31,6 +28,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sort"
 )
 
 /*
@@ -40,7 +38,6 @@ type mzarg []float64
 
 var mzs mzarg
 var tol float64
-var mem bool
 
 func (i *mzarg) String() string {
 	return fmt.Sprintf("%d", *i)
@@ -60,7 +57,6 @@ func (i *mzarg) Set(value string) error {
 func init() {
 	flag.Var(&mzs, "mz", "m/z to filter on, this flag may be specified multiple times")
 	flag.Float64Var(&tol, "tol", 0, "allowed m/z tolerance in ppm, can be used with -mz")
-	flag.BoolVar(&mem, "m", false, "read all scans in memory for a speed gain")
 	flag.Parse()
 }
 
@@ -70,31 +66,33 @@ func init() {
 func main() {
 	for _, filename := range flag.Args() {
 		//xic gets called on each MS1 Scan read by the unthermo library
-		unthermo.AllScans(filename, mem, 1, xic)
+		unthermo.Open(filename)
+		unthermo.AllScans(xic)
+		unthermo.Close()
 	}
 }
 
 //Algorithm calculating and outputting the peaks belonging to the XIC's
-var xic = func(spectrum unthermo.Spectrum) {
-	//for every mz in the argument list
-	for _, mz := range mzs {
-		//save the spectrum within range
-		var specWithinTol unthermo.Spectrum
-		for _, peak := range spectrum {
-			if peak.Mz <= mz+10e-6*tol*mz && peak.Mz >= mz-10e-6*tol*mz {
-				specWithinTol = append(specWithinTol, peak)
-			}
-		}
-
-		//print the maximum signal of specWithinTol
-		if len(specWithinTol) > 0 {
-			var maxIn unthermo.Peak
-			for _, peak := range specWithinTol {
-				if peak.I >= maxIn.I {
-					maxIn = peak
+var xic = func(scan unthermo.Scan) {
+	//if an MS1 Scan:
+	if scan.MSLevel == 1 {
+		//for every mz in the argument list
+		for _, mz := range mzs {
+			//print the peaks within tolerance.
+			//The spectrum is sorted by m/z so we can search for the two 
+			//border peaks and get the range between them
+			lowi := sort.Search(len(scan.Spectrum), func(i int) bool { return scan.Spectrum[i].Mz >= mz-10e-6*tol*mz})
+			highi := sort.Search(len(scan.Spectrum), func(i int) bool { return scan.Spectrum[i].Mz >= mz+10e-6*tol*mz})
+			//if there is any data in this interval
+			if highi > lowi {
+				var maxIn unthermo.Peak
+				for _, peak := range scan.Spectrum[lowi:highi] {
+					if peak.I >= maxIn.I {
+						maxIn = peak
+					}
 				}
+				fmt.Println(mz, maxIn.Time, maxIn.I)
 			}
-			fmt.Println(mz, maxIn.Time, maxIn.I)
 		}
 	}
 }

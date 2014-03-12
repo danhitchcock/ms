@@ -1,5 +1,6 @@
 package unthermo
 
+import "log"
 
 type Peak struct {
 	Time float64
@@ -11,15 +12,15 @@ type Spectrum []Peak
 
 type Scan struct {
 	Spectrum
-	MSLevel uint8
+	MSLevel    uint8
 	Activation Activation
 }
-	
+
 type Activation int
 
 const (
-        CID Activation = iota
-        HCD
+	CID Activation = iota
+	HCD
 )
 
 //Spectrum implements sort.Interface for []Peak based on m/z
@@ -29,25 +30,37 @@ func (a Spectrum) Less(i, j int) bool { return a[i].Mz < a[j].Mz }
 
 /*
  * Convenience function that runs over all spectra in the raw file
- * 
+ *
  * On every encountered MS Scan, the function fun is called
  */
-func AllScans(fun func(Scan)) {	
-	for i, sie := range scanindexentries {
-			scn := new(ScanDataPacket)
-			ReadAt(sie.Offset, 0, scn)
-			fun(scan(scn, &scanevents[i], &sie))
-		}
+func AllScans(fun func(Scan)) {
+	for i, sie := range scanindex {
+		scn := new(ScanDataPacket)
+		ReadBetween(sie.Offset, sie.Offset+uint64(sie.DataPacketSize), 0, scn)
+		fun(scan(scn, &scanevents[i], &sie))
+	}
 }
 
-func ScanAt(sn uint64) Scan {
+//Returns the number of scans in the index
+func NScans() int {
+	return len(scanindex)
+}
+
+func ScanNumber(sn int) Scan {
+	if sn < 1 || sn > NScans() {
+		log.Fatal("Scan Number ", sn, " is out of bounds [1, ", NScans(), "]")
+	}
+
 	//read Scan Packet for the above scan number
 	scn := new(ScanDataPacket)
-	ReadAt(scanindexentries[sn-1].Offset, 0, scn)
-
-	return scan(scn, &scanevents[sn-1], &scanindexentries[sn-1])
+	ReadBetween(scanindex[sn-1].Offset, scanindex[sn-1].Offset+uint64(scanindex[sn-1].DataPacketSize), 0, scn)
+	
+	return scan(scn, &scanevents[sn-1], &scanindex[sn-1])
 }
 
+/*
+ * Converts the three Thermo scan data structures into a general structure
+ */
 func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 	sie *ScanIndexEntry) Scan {
 
@@ -78,5 +91,3 @@ func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 
 	return scan
 }
-
-

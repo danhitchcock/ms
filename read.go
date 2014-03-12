@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"io"
 	"unicode/utf16"
+	"log"
+	"bytes"
 )
 
 //interface shared by all data objects in the raw file
@@ -27,41 +29,41 @@ func (data ScanDataPackets) Read(r io.Reader, v Version) {
 }
 
 func (data *ScanDataPacket) Read(r io.Reader, v Version) {
-	Read(r, &data.Header)
+	binaryread(r, &data.Header)
 
 	if data.Header.ProfileSize > 0 {
-		Read(r, &data.Profile.FirstValue)
-		Read(r, &data.Profile.Step)
-		Read(r, &data.Profile.PeakCount)
-		Read(r, &data.Profile.Nbins)
+		binaryread(r, &data.Profile.FirstValue)
+		binaryread(r, &data.Profile.Step)
+		binaryread(r, &data.Profile.PeakCount)
+		binaryread(r, &data.Profile.Nbins)
 
 		data.Profile.Chunks = make([]ProfileChunk, data.Profile.PeakCount)
 
 		for i := uint32(0); i < data.Profile.PeakCount; i++ {
-			Read(r, &data.Profile.Chunks[i].Firstbin)
-			Read(r, &data.Profile.Chunks[i].Nbins)
+			binaryread(r, &data.Profile.Chunks[i].Firstbin)
+			binaryread(r, &data.Profile.Chunks[i].Nbins)
 			if data.Header.Layout > 0 {
-				Read(r, &data.Profile.Chunks[i].Fudge)
+				binaryread(r, &data.Profile.Chunks[i].Fudge)
 			}
 			data.Profile.Chunks[i].Signal = make([]float32, data.Profile.Chunks[i].Nbins)
-			Read(r, data.Profile.Chunks[i].Signal)
+			binaryread(r, data.Profile.Chunks[i].Signal)
 		}
 	}
 
 	if data.Header.PeaklistSize > 0 {
-		Read(r, &data.PeakList.Count)
+		binaryread(r, &data.PeakList.Count)
 		data.PeakList.Peaks = make([]CentroidedPeak, data.PeakList.Count)
-		Read(r, data.PeakList.Peaks)
+		binaryread(r, data.PeakList.Peaks)
 	}
 
 	data.DescriptorList = make([]PeakDescriptor, data.Header.DescriptorListSize)
-	Read(r, data.DescriptorList)
+	binaryread(r, data.DescriptorList)
 	
 	data.Unknown = make([]float32, data.Header.UnknownStreamSize)
-	Read(r, data.Unknown)
+	binaryread(r, data.Unknown)
 	
 	data.Triplets = make([]float32, data.Header.TripletStreamSize)
-	Read(r, data.Triplets)
+	binaryread(r, data.Triplets)
 
 }
 
@@ -124,7 +126,7 @@ type ProfileChunk struct {
 type TrailerLength uint32
 
 func (data *TrailerLength) Read(r io.Reader, v Version) {
-	Read(r, data)
+	binaryread(r, data)
 }
 
 /*
@@ -145,65 +147,65 @@ func (data *ScanEvent) Read(r io.Reader, v Version) {
 	if v < 66 {
 		switch {
 		case v < 57:
-			Read(r, data.Preamble[:41])
+			binaryread(r, data.Preamble[:41])
 		case v >= 57 && v < 62:
-			Read(r, data.Preamble[:80])
+			binaryread(r, data.Preamble[:80])
 		case v >= 62 && v < 63:
-			Read(r, data.Preamble[:120])
+			binaryread(r, data.Preamble[:120])
 		case v >= 63:
-			Read(r, data.Preamble[:128])
+			binaryread(r, data.Preamble[:128])
 		}
-		Read(r, &data.Nprecursors)
+		binaryread(r, &data.Nprecursors)
 		data.Reaction = make([]Reaction, data.Nprecursors)
 		for i := range data.Reaction {
-			Read(r, &data.Reaction[i])
+			binaryread(r, &data.Reaction[i])
 		}
 
-		Read(r, &data.Unknown1[0])
-		Read(r, &data.MZrange[0])
-		Read(r, &data.Nparam)
+		binaryread(r, &data.Unknown1[0])
+		binaryread(r, &data.MZrange[0])
+		binaryread(r, &data.Nparam)
 
 		switch data.Nparam {
 		case 4:
-			Read(r, &data.Unknown2[0])
-			Read(r, &data.A)
-			Read(r, &data.B)
-			Read(r, &data.C)
+			binaryread(r, &data.Unknown2[0])
+			binaryread(r, &data.A)
+			binaryread(r, &data.B)
+			binaryread(r, &data.C)
 		case 7:
-			Read(r, data.Unknown2[0:2])
-			Read(r, &data.A)
-			Read(r, &data.B)
-			Read(r, &data.C)
-			Read(r, data.Unknown2[2:4])
+			binaryread(r, data.Unknown2[0:2])
+			binaryread(r, &data.A)
+			binaryread(r, &data.B)
+			binaryread(r, &data.C)
+			binaryread(r, data.Unknown2[2:4])
 		}
 
-		Read(r, data.Unknown1[1:3])
+		binaryread(r, data.Unknown1[1:3])
 	} else { //v66
-		Read(r, &data.Preamble)
-		Read(r, &data.Unknown1[0])
-		Read(r, &data.Nprecursors)  //this is just a guess according to Gene Selkov
+		binaryread(r, &data.Preamble)
+		binaryread(r, &data.Unknown1[0])
+		binaryread(r, &data.Nprecursors)  //this is just a guess according to Gene Selkov
 		if data.Preamble[10] == 1 { //ms2 (dependent scan)
 			data.Reaction = make([]Reaction, data.Nprecursors)
 			for i := range data.Reaction {
-				Read(r, &data.Reaction[i])
+				binaryread(r, &data.Reaction[i])
 			}
-			Read(r, data.Unknown2[0:2])
-			Read(r, data.Unknown1[1:4])
-			Read(r, &data.MZrange[0])
-			Read(r, &data.Nparam)
+			binaryread(r, data.Unknown2[0:2])
+			binaryread(r, data.Unknown1[1:4])
+			binaryread(r, &data.MZrange[0])
+			binaryread(r, &data.Nparam)
 		} else { //ms1
-			Read(r, &data.MZrange[0])
-			Read(r, data.Unknown1[1:5])
-			Read(r, &data.MZrange[1])
-			Read(r, data.Unknown1[5:8])
-			Read(r, &data.MZrange[2])
-			Read(r, &data.Nparam)
+			binaryread(r, &data.MZrange[0])
+			binaryread(r, data.Unknown1[1:5])
+			binaryread(r, &data.MZrange[1])
+			binaryread(r, data.Unknown1[5:8])
+			binaryread(r, &data.MZrange[2])
+			binaryread(r, &data.Nparam)
 		}
-		Read(r, data.Unknown2[2:4])
-		Read(r, &data.A)
-		Read(r, &data.B)
-		Read(r, &data.C)
-		Read(r, data.Unknown1[8:13])
+		binaryread(r, data.Unknown2[2:4])
+		binaryread(r, &data.A)
+		binaryread(r, &data.B)
+		binaryread(r, &data.C)
+		binaryread(r, data.Unknown1[8:13])
 	}
 }
 
@@ -242,9 +244,9 @@ type FractionCollector struct {
  * other important information is the scan time
  */
 
-type ScanIndexEntries []ScanIndexEntry
+type ScanIndex []ScanIndexEntry
 
-func (data ScanIndexEntries) Read(r io.Reader, v Version) {
+func (data ScanIndex) Read(r io.Reader, v Version) {
 	for i := range data {
 		data[i].Read(r, v)
 	}
@@ -263,36 +265,36 @@ func (data ScanIndexEntry) Size(v Version) uint64 {
 
 func (data *ScanIndexEntry) Read(r io.Reader, v Version) {
 	if v == 66 {
-		Read(r, data)
+		binaryread(r, data)
 	} else if v == 64 {
-		Read(r, &data.Offset32)
-		Read(r, &data.Index) //starts from 0
-		Read(r, &data.Scanevent)
-		Read(r, &data.Scansegment)
-		Read(r, &data.Next)
-		Read(r, &data.Unknown1)
-		Read(r, &data.DataPacketSize)
-		Read(r, &data.Time)
-		Read(r, &data.Totalcurrent)
-		Read(r, &data.Baseintensity)
-		Read(r, &data.Basemz)
-		Read(r, &data.Lowmz)
-		Read(r, &data.Highmz)
-		Read(r, &data.Offset)
+		binaryread(r, &data.Offset32)
+		binaryread(r, &data.Index) //starts from 0
+		binaryread(r, &data.Scanevent)
+		binaryread(r, &data.Scansegment)
+		binaryread(r, &data.Next)
+		binaryread(r, &data.Unknown1)
+		binaryread(r, &data.DataPacketSize)
+		binaryread(r, &data.Time)
+		binaryread(r, &data.Totalcurrent)
+		binaryread(r, &data.Baseintensity)
+		binaryread(r, &data.Basemz)
+		binaryread(r, &data.Lowmz)
+		binaryread(r, &data.Highmz)
+		binaryread(r, &data.Offset)
 	} else {
-		Read(r, &data.Offset32)
-		Read(r, &data.Index) //starts from 0
-		Read(r, &data.Scanevent)
-		Read(r, &data.Scansegment)
-		Read(r, &data.Next)
-		Read(r, &data.Unknown1)
-		Read(r, &data.DataPacketSize)
-		Read(r, &data.Time)
-		Read(r, &data.Totalcurrent)
-		Read(r, &data.Baseintensity)
-		Read(r, &data.Basemz)
-		Read(r, &data.Lowmz)
-		Read(r, &data.Highmz)
+		binaryread(r, &data.Offset32)
+		binaryread(r, &data.Index) //starts from 0
+		binaryread(r, &data.Scanevent)
+		binaryread(r, &data.Scansegment)
+		binaryread(r, &data.Next)
+		binaryread(r, &data.Unknown1)
+		binaryread(r, &data.DataPacketSize)
+		binaryread(r, &data.Time)
+		binaryread(r, &data.Totalcurrent)
+		binaryread(r, &data.Baseintensity)
+		binaryread(r, &data.Basemz)
+		binaryread(r, &data.Lowmz)
+		binaryread(r, &data.Highmz)
 
 		data.Offset = uint64(data.Offset32)
 	}
@@ -341,22 +343,22 @@ func (data CIndexEntry) Size(v Version) uint64 {
 func (data *CIndexEntry) Read(r io.Reader, v Version) {
 	switch {
 	case v < 64:
-		Read(r, &data.Offset32)
-		Read(r, &data.Index)
-		Read(r, &data.Event)
-		Read(r, &data.Unknown1)
-		Read(r, &data.Unknown2)
-		Read(r, &data.Unknown3)
-		Read(r, &data.Unknown4)
-		Read(r, &data.Unknown5)
-		Read(r, &data.Time)
-		Read(r, &data.Unknown6)
-		Read(r, &data.Unknown7)
-		Read(r, &data.Value)
+		binaryread(r, &data.Offset32)
+		binaryread(r, &data.Index)
+		binaryread(r, &data.Event)
+		binaryread(r, &data.Unknown1)
+		binaryread(r, &data.Unknown2)
+		binaryread(r, &data.Unknown3)
+		binaryread(r, &data.Unknown4)
+		binaryread(r, &data.Unknown5)
+		binaryread(r, &data.Time)
+		binaryread(r, &data.Unknown6)
+		binaryread(r, &data.Unknown7)
+		binaryread(r, &data.Value)
 
 		data.Offset = uint64(data.Offset32)
 	default:
-		Read(r, data)
+		binaryread(r, data)
 	}
 
 }
@@ -391,7 +393,7 @@ func (data CDataPackets) Read(r io.Reader, v Version) {
 }
 
 func (data *CDataPacket) Read(r io.Reader, v Version) {
-	Read(r, data)
+	binaryread(r, data)
 }
 
 type CDataPacket struct { //16 bytes
@@ -406,32 +408,32 @@ type CDataPacket struct { //16 bytes
  */
 
 func (data *RunHeader) Read(r io.Reader, v Version) {
-	Read(r, &data.SampleInfo)
-	Read(r, &data.Filename1)
-	Read(r, &data.Filename2)
-	Read(r, &data.Filename3)
-	Read(r, &data.Filename4)
-	Read(r, &data.Filename5)
-	Read(r, &data.Filename6)
-	Read(r, &data.Unknown1)
-	Read(r, &data.Unknown2)
-	Read(r, &data.Filename7)
-	Read(r, &data.Filename8)
-	Read(r, &data.Filename9)
-	Read(r, &data.Filename10)
-	Read(r, &data.Filename11)
-	Read(r, &data.Filename12)
-	Read(r, &data.Filename13)
-	Read(r, &data.ScantrailerAddr32)
-	Read(r, &data.ScanparamsAddr32)
-	Read(r, &data.Unknown3)
-	Read(r, &data.Unknown4)
-	Read(r, &data.Nsegs)
-	Read(r, &data.Unknown5)
-	Read(r, &data.Unknown6)
-	Read(r, &data.OwnAddr32)
-	Read(r, &data.Unknown7)
-	Read(r, &data.Unknown8)
+	binaryread(r, &data.SampleInfo)
+	binaryread(r, &data.Filename1)
+	binaryread(r, &data.Filename2)
+	binaryread(r, &data.Filename3)
+	binaryread(r, &data.Filename4)
+	binaryread(r, &data.Filename5)
+	binaryread(r, &data.Filename6)
+	binaryread(r, &data.Unknown1)
+	binaryread(r, &data.Unknown2)
+	binaryread(r, &data.Filename7)
+	binaryread(r, &data.Filename8)
+	binaryread(r, &data.Filename9)
+	binaryread(r, &data.Filename10)
+	binaryread(r, &data.Filename11)
+	binaryread(r, &data.Filename12)
+	binaryread(r, &data.Filename13)
+	binaryread(r, &data.ScantrailerAddr32)
+	binaryread(r, &data.ScanparamsAddr32)
+	binaryread(r, &data.Unknown3)
+	binaryread(r, &data.Unknown4)
+	binaryread(r, &data.Nsegs)
+	binaryread(r, &data.Unknown5)
+	binaryread(r, &data.Unknown6)
+	binaryread(r, &data.OwnAddr32)
+	binaryread(r, &data.Unknown7)
+	binaryread(r, &data.Unknown8)
 
 	data.ScanindexAddr = uint64(data.SampleInfo.ScanindexAddr)
 	data.DataAddr = uint64(data.SampleInfo.DataAddr)
@@ -442,53 +444,53 @@ func (data *RunHeader) Read(r io.Reader, v Version) {
 	data.OwnAddr = uint64(data.OwnAddr32)
 
 	if v >= 64 {
-		Read(r, &data.ScanindexAddr)
-		Read(r, &data.DataAddr)
-		Read(r, &data.InstlogAddr)
-		Read(r, &data.ErrorlogAddr)
-		Read(r, &data.Unknown9)
-		Read(r, &data.ScantrailerAddr)
-		Read(r, &data.ScanparamsAddr)
-		Read(r, &data.Unknown10)
-		Read(r, &data.Unknown11)
-		Read(r, &data.OwnAddr)
+		binaryread(r, &data.ScanindexAddr)
+		binaryread(r, &data.DataAddr)
+		binaryread(r, &data.InstlogAddr)
+		binaryread(r, &data.ErrorlogAddr)
+		binaryread(r, &data.Unknown9)
+		binaryread(r, &data.ScantrailerAddr)
+		binaryread(r, &data.ScanparamsAddr)
+		binaryread(r, &data.Unknown10)
+		binaryread(r, &data.Unknown11)
+		binaryread(r, &data.OwnAddr)
 
-		Read(r, &data.Unknown12)
-		Read(r, &data.Unknown13)
-		Read(r, &data.Unknown14)
-		Read(r, &data.Unknown15)
-		Read(r, &data.Unknown16)
-		Read(r, &data.Unknown17)
-		Read(r, &data.Unknown18)
-		Read(r, &data.Unknown19)
-		Read(r, &data.Unknown20)
-		Read(r, &data.Unknown21)
-		Read(r, &data.Unknown22)
-		Read(r, &data.Unknown23)
-		Read(r, &data.Unknown24)
-		Read(r, &data.Unknown25)
-		Read(r, &data.Unknown26)
-		Read(r, &data.Unknown27)
-		Read(r, &data.Unknown28)
-		Read(r, &data.Unknown29)
-		Read(r, &data.Unknown30)
-		Read(r, &data.Unknown31)
-		Read(r, &data.Unknown32)
-		Read(r, &data.Unknown33)
-		Read(r, &data.Unknown34)
-		Read(r, &data.Unknown35)
+		binaryread(r, &data.Unknown12)
+		binaryread(r, &data.Unknown13)
+		binaryread(r, &data.Unknown14)
+		binaryread(r, &data.Unknown15)
+		binaryread(r, &data.Unknown16)
+		binaryread(r, &data.Unknown17)
+		binaryread(r, &data.Unknown18)
+		binaryread(r, &data.Unknown19)
+		binaryread(r, &data.Unknown20)
+		binaryread(r, &data.Unknown21)
+		binaryread(r, &data.Unknown22)
+		binaryread(r, &data.Unknown23)
+		binaryread(r, &data.Unknown24)
+		binaryread(r, &data.Unknown25)
+		binaryread(r, &data.Unknown26)
+		binaryread(r, &data.Unknown27)
+		binaryread(r, &data.Unknown28)
+		binaryread(r, &data.Unknown29)
+		binaryread(r, &data.Unknown30)
+		binaryread(r, &data.Unknown31)
+		binaryread(r, &data.Unknown32)
+		binaryread(r, &data.Unknown33)
+		binaryread(r, &data.Unknown34)
+		binaryread(r, &data.Unknown35)
 	}
 
-	Read(r, &data.Unknown36)
-	Read(r, &data.Unknown37)
-	Read(r, &data.Device)
-	Read(r, &data.Model)
-	Read(r, &data.SN)
-	Read(r, &data.SWVer)
-	Read(r, &data.Tag1)
-	Read(r, &data.Tag2)
-	Read(r, &data.Tag3)
-	Read(r, &data.Tag4)
+	binaryread(r, &data.Unknown36)
+	binaryread(r, &data.Unknown37)
+	binaryread(r, &data.Device)
+	binaryread(r, &data.Model)
+	binaryread(r, &data.SN)
+	binaryread(r, &data.SWVer)
+	binaryread(r, &data.Tag1)
+	binaryread(r, &data.Tag2)
+	binaryread(r, &data.Tag3)
+	binaryread(r, &data.Tag4)
 }
 
 type RunHeader struct {
@@ -602,8 +604,8 @@ type SampleInfo struct {
  */
 
 func (data *AutoSamplerInfo) Read(r io.Reader, v Version) {
-	Read(r, &data.Preamble)
-	Read(r, &data.Text)
+	binaryread(r, &data.Preamble)
+	binaryread(r, &data.Text)
 }
 
 type AutoSamplerInfo struct {
@@ -625,44 +627,44 @@ type AutoSamplerPreamble struct {
  */
 
 func (data *SequencerRow) Read(r io.Reader, v Version) {
-	Read(r, &data.Injection)
+	binaryread(r, &data.Injection)
 
-	Read(r, &data.Unknown1)
-	Read(r, &data.Unknown2)
-	Read(r, &data.Id)
-	Read(r, &data.Comment)
-	Read(r, &data.Userlabel1)
-	Read(r, &data.Userlabel2)
-	Read(r, &data.Userlabel3)
-	Read(r, &data.Userlabel4)
-	Read(r, &data.Userlabel5)
-	Read(r, &data.Instmethod)
-	Read(r, &data.Procmethod)
-	Read(r, &data.Filename)
-	Read(r, &data.Path)
+	binaryread(r, &data.Unknown1)
+	binaryread(r, &data.Unknown2)
+	binaryread(r, &data.Id)
+	binaryread(r, &data.Comment)
+	binaryread(r, &data.Userlabel1)
+	binaryread(r, &data.Userlabel2)
+	binaryread(r, &data.Userlabel3)
+	binaryread(r, &data.Userlabel4)
+	binaryread(r, &data.Userlabel5)
+	binaryread(r, &data.Instmethod)
+	binaryread(r, &data.Procmethod)
+	binaryread(r, &data.Filename)
+	binaryread(r, &data.Path)
 
 	if v >= 57 {
-		Read(r, &data.Vial)
-		Read(r, &data.Unknown3)
-		Read(r, &data.Unknown4)
-		Read(r, &data.Unknown5)
+		binaryread(r, &data.Vial)
+		binaryread(r, &data.Unknown3)
+		binaryread(r, &data.Unknown4)
+		binaryread(r, &data.Unknown5)
 	}
 	if v >= 60 {
-		Read(r, &data.Unknown6)
-		Read(r, &data.Unknown7)
-		Read(r, &data.Unknown8)
-		Read(r, &data.Unknown9)
-		Read(r, &data.Unknown10)
-		Read(r, &data.Unknown11)
-		Read(r, &data.Unknown12)
-		Read(r, &data.Unknown13)
-		Read(r, &data.Unknown14)
-		Read(r, &data.Unknown15)
-		Read(r, &data.Unknown16)
-		Read(r, &data.Unknown17)
-		Read(r, &data.Unknown18)
-		Read(r, &data.Unknown19)
-		Read(r, &data.Unknown20)
+		binaryread(r, &data.Unknown6)
+		binaryread(r, &data.Unknown7)
+		binaryread(r, &data.Unknown8)
+		binaryread(r, &data.Unknown9)
+		binaryread(r, &data.Unknown10)
+		binaryread(r, &data.Unknown11)
+		binaryread(r, &data.Unknown12)
+		binaryread(r, &data.Unknown13)
+		binaryread(r, &data.Unknown14)
+		binaryread(r, &data.Unknown15)
+		binaryread(r, &data.Unknown16)
+		binaryread(r, &data.Unknown17)
+		binaryread(r, &data.Unknown18)
+		binaryread(r, &data.Unknown19)
+		binaryread(r, &data.Unknown20)
 	}
 }
 
@@ -723,31 +725,31 @@ type InjectionData struct {
  */
 
 func (data *RawFileInfo) Read(r io.Reader, v Version) {
-	Read(r, &data.Preamble.Methodfilepresent)
-	Read(r, &data.Preamble.Year)
-	Read(r, &data.Preamble.Month)
-	Read(r, &data.Preamble.Weekday)
-	Read(r, &data.Preamble.Day)
-	Read(r, &data.Preamble.Hour)
-	Read(r, &data.Preamble.Minute)
-	Read(r, &data.Preamble.Second)
-	Read(r, &data.Preamble.Millisecond)
+	binaryread(r, &data.Preamble.Methodfilepresent)
+	binaryread(r, &data.Preamble.Year)
+	binaryread(r, &data.Preamble.Month)
+	binaryread(r, &data.Preamble.Weekday)
+	binaryread(r, &data.Preamble.Day)
+	binaryread(r, &data.Preamble.Hour)
+	binaryread(r, &data.Preamble.Minute)
+	binaryread(r, &data.Preamble.Second)
+	binaryread(r, &data.Preamble.Millisecond)
 
 	if v >= 57 {
-		Read(r, &data.Preamble.Unknown1)
-		Read(r, &data.Preamble.DataAddr32)
-		Read(r, &data.Preamble.NControllers)
-		Read(r, &data.Preamble.NControllers2)
-		Read(r, &data.Preamble.Unknown2)
-		Read(r, &data.Preamble.Unknown3)
+		binaryread(r, &data.Preamble.Unknown1)
+		binaryread(r, &data.Preamble.DataAddr32)
+		binaryread(r, &data.Preamble.NControllers)
+		binaryread(r, &data.Preamble.NControllers2)
+		binaryread(r, &data.Preamble.Unknown2)
+		binaryread(r, &data.Preamble.Unknown3)
 		if v < 64 {
 			data.Preamble.RunHeaderAddr32 = make([]uint32, data.Preamble.NControllers)
 			data.Preamble.Unknown4 = make([]uint32, data.Preamble.NControllers)
 			data.Preamble.Unknown5 = make([]uint32, data.Preamble.NControllers)
 			for i := range data.Preamble.RunHeaderAddr32 {
-				Read(r, &data.Preamble.RunHeaderAddr32[i])
-				Read(r, &data.Preamble.Unknown4[i])
-				Read(r, &data.Preamble.Unknown5[i])
+				binaryread(r, &data.Preamble.RunHeaderAddr32[i])
+				binaryread(r, &data.Preamble.Unknown4[i])
+				binaryread(r, &data.Preamble.Unknown5[i])
 			}
 
 			data.Preamble.RunHeaderAddr = make([]uint64, data.Preamble.NControllers)
@@ -756,38 +758,38 @@ func (data *RawFileInfo) Read(r io.Reader, v Version) {
 			}
 
 			if v == 57 {
-				Read(r, data.Preamble.Padding1[:756-12*data.Preamble.NControllers])
+				binaryread(r, data.Preamble.Padding1[:756-12*data.Preamble.NControllers])
 			} else {
-				Read(r, data.Preamble.Padding1[:760-12*data.Preamble.NControllers])
+				binaryread(r, data.Preamble.Padding1[:760-12*data.Preamble.NControllers])
 			}
 		} else {
-			Read(r, &data.Preamble.Padding1)
+			binaryread(r, &data.Preamble.Padding1)
 		}
 
 	}
 	if v >= 64 {
-		Read(r, &data.Preamble.DataAddr)
-		Read(r, &data.Preamble.Unknown6)
+		binaryread(r, &data.Preamble.DataAddr)
+		binaryread(r, &data.Preamble.Unknown6)
 
 		data.Preamble.RunHeaderAddr = make([]uint64, data.Preamble.NControllers)
 		data.Preamble.Unknown7 = make([]uint64, data.Preamble.NControllers)
 		for i := range data.Preamble.RunHeaderAddr {
-			Read(r, &data.Preamble.RunHeaderAddr[i])
-			Read(r, &data.Preamble.Unknown7[i])
+			binaryread(r, &data.Preamble.RunHeaderAddr[i])
+			binaryread(r, &data.Preamble.Unknown7[i])
 		}
 		if v < 66 {
-			Read(r, data.Preamble.Padding2[:1016-16*data.Preamble.NControllers])
+			binaryread(r, data.Preamble.Padding2[:1016-16*data.Preamble.NControllers])
 		} else {
-			Read(r, data.Preamble.Padding2[:1032-16*data.Preamble.NControllers])
+			binaryread(r, data.Preamble.Padding2[:1032-16*data.Preamble.NControllers])
 		}
 	}
 
-	Read(r, &data.Heading1)
-	Read(r, &data.Heading2)
-	Read(r, &data.Heading3)
-	Read(r, &data.Heading4)
-	Read(r, &data.Heading5)
-	Read(r, &data.Unknown1)
+	binaryread(r, &data.Heading1)
+	binaryread(r, &data.Heading2)
+	binaryread(r, &data.Heading3)
+	binaryread(r, &data.Heading4)
+	binaryread(r, &data.Heading5)
+	binaryread(r, &data.Unknown1)
 }
 
 type RawFileInfo struct {
@@ -829,33 +831,11 @@ type InfoPreamble struct {
 	Padding2      [1032]byte //1024 bytes, 1008 bytes in v64
 }
 
-type PascalString struct {
-	Length int32
-	Text   []uint16
-}
-
-func (t PascalString) String() string {
-	return string(utf16.Decode(t.Text[:]))
-}
-
-//Wrapper around binary.Read, reads both PascalStrings and structs from r
-func Read(r io.Reader, data interface{}) {
-	switch v := data.(type) {
-	case *PascalString:
-		binary.Read(r, binary.LittleEndian, &v.Length)
-		v.Text = make([]uint16, v.Length)
-		binary.Read(r, binary.LittleEndian, &v.Text)
-	default:
-		binary.Read(r, binary.LittleEndian, v)
-	}
-}
-
 /*
  * The FileHeaders most valuable piece of info is the file version
  */
-
 func (data *FileHeader) Read(r io.Reader, v Version) {
-	Read(r, data)
+	binaryread(r, data)
 }
 
 type Version uint32
@@ -899,3 +879,86 @@ type signature [9]uint16
 func (t signature) String() string {
 	return string(utf16.Decode(t[:]))
 }
+
+type PascalString struct {
+	Length int32
+	Text   []uint16
+}
+
+func (t PascalString) String() string {
+	return string(utf16.Decode(t.Text[:]))
+}
+
+//Wrapper around binary.Read, reads both PascalStrings and structs from r
+func binaryread(r io.Reader, data interface{}) {
+	switch v := data.(type) {
+	case *PascalString:
+		binary.Read(r, binary.LittleEndian, &v.Length)
+		v.Text = make([]uint16, v.Length)
+		binary.Read(r, binary.LittleEndian, &v.Text)
+	default:
+		binary.Read(r, binary.LittleEndian, v)
+	}
+}
+
+//For a version v Thermo File, starting at position pos, reads
+//data, and returns the position in the file afterwards
+func ReadAt(pos uint64, v Version, data Reader) uint64 {
+	spos, err := file.Seek(int64(pos), 0)
+	if err != nil {
+		log.Fatal("error seeking file", err)
+	}
+
+	data.Read(file, v)
+
+	spos, err = file.Seek(0, 1)
+	if err != nil {
+		log.Fatal("error determining position in file", err)
+	}
+	
+	return uint64(spos)
+}
+
+//Copies the range in memory and then fills the Reader
+//This tested faster than bufio or just reading away
+func ReadBetween(begin uint64, end uint64, v Version, data Reader) {
+	_, err := file.Seek(int64(begin), 0)
+	if err != nil {
+		log.Fatal("error seeking file", err)
+	}
+
+	b := make([]byte, end-begin) //may fail because of memory requirements
+	io.ReadFull(file, b)
+
+	data.Read(bytes.NewReader(b), v)
+}
+
+//Convert Hz values to m/z
+func (data ScanEvent) Convert(v float64) float64 {
+	switch data.Nparam {
+	case 4:
+		return data.A + data.B/v + data.C/v/v
+	case 5, 7:
+		return data.A + data.B/v/v + data.C/v/v/v/v
+	default:
+		return v
+	}
+}
+
+//Read only the initial header part of the file (for the juicy addresses)
+func readHeaders() (RawFileInfo, Version) {
+	hdr := new(FileHeader)
+	info := new(RawFileInfo)
+
+	//save position in file after reading, we need to sequentially
+	//read some things in order to get to actual byte addresses
+	pos := ReadAt(0, 0, hdr)
+	ver := hdr.Version
+
+	pos = ReadAt(pos, ver, new(SequencerRow))
+	pos = ReadAt(pos, 0, new(AutoSamplerInfo))
+	ReadAt(pos, ver, info)
+
+	return *info, ver
+}
+
