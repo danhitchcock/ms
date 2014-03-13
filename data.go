@@ -1,16 +1,16 @@
 //Package ms is a library for mass spectrometry data
 package ms
 
-//An ion peak
+//Peak represents an ion peak
 type Peak struct {
 	Mz   float64
 	I    float32
 }
 
-//A collection of peaks
+//Spectrum is the collection of peaks
 type Spectrum []Peak
 
-//The scan event of the mass spectrometer
+//Scan represents the peak acquisition event of the mass spectrometer
 type Scan struct {
 	Activation Activation
 	MSLevel    uint8
@@ -18,13 +18,13 @@ type Scan struct {
 	Time float64
 }
 
-//For fragmentation scans, there is an activation type
+//Activation is a type that describes the activation type for fragmentation scans
 type Activation int
 
 const (
-	//Collision induced dissociation
+	//CID stands for Collision induced dissociation
 	CID Activation = iota
-	//Higher-energy collisional dissociation
+	//HCD for Higher-energy collisional dissociation
 	HCD
 )
 
