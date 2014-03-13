@@ -868,7 +868,7 @@ func (data *SequencerRow) Read(r io.Reader, v Version) {
 
 	binaryread(r, &data.Unknown1)
 	binaryread(r, &data.Unknown2)
-	binaryread(r, &data.Id)
+	binaryread(r, &data.ID)
 	binaryread(r, &data.Comment)
 	binaryread(r, &data.Userlabel1)
 	binaryread(r, &data.Userlabel2)
