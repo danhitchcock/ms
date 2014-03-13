@@ -1,5 +1,5 @@
-//Package unthermo is a library that can read the Thermo RAW file structure
-//it only deals with version 57 and above (fairly recent machines)
+//Package unthermo is a library that can read the Thermo RAW file structure.
+//It only deals with version 57 and above (fairly recent machines).
 package unthermo
 
 import (
