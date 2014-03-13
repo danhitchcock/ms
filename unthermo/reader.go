@@ -1,4 +1,4 @@
-//A library that can read in Thermo RAW file structures
+//Package unthermo is a library that can read the Thermo RAW file structure
 //it only deals with version 57 and above (fairly recent machines)
 package unthermo
 
@@ -13,6 +13,7 @@ import (
 	"unicode/utf16"
 )
 
+//File is an in-memory representation of the Thermo RAW file
 type File struct {
 	//the file on disk
 	f *os.File
@@ -23,7 +24,7 @@ type File struct {
 	scanindex ScanIndex
 }
 
-//Opens the supplied filename and reads the indices from the RAW file in memory. Multiple files may be read concurrently.
+//Open opens the supplied filename and reads the indices from the RAW file in memory. Multiple files may be read concurrently.
 func Open(fn string) (file File, err error) {
 	f, err := os.Open(fn)
 	if err != nil {
@@ -40,7 +41,7 @@ func Open(fn string) (file File, err error) {
 		readAt(f, info.Preamble.RunHeaderAddr[i], ver, rh)
 	}
 	if rh.ScantrailerAddr == 0 {
-		err = errors.New("Couldn't find MS run header in file")
+		err = errors.New("couldn't find MS run header in file")
 		return
 	}
 
@@ -63,7 +64,7 @@ func Open(fn string) (file File, err error) {
 	return File{f: f, scanevents: scanevents, scanindex: scanindex}, err
 }
 
-//Close the RAW file
+//Close closes the RAW file
 func (rf File) Close() error {
 	return rf.f.Close()
 }
@@ -816,7 +817,7 @@ type SequencerRow struct {
 	Injection  InjectionData
 	Unknown1   PascalString
 	Unknown2   PascalString
-	Id         PascalString
+	ID         PascalString
 	Comment    PascalString
 	Userlabel1 PascalString
 	Userlabel2 PascalString
@@ -1028,8 +1029,8 @@ type FileHeader struct { //1356 bytes
 	Unknown3    uint32    //4 bytes
 	Unknown4    uint32    //4 bytes
 	Version     Version   //4 bytes
-	Audit_start AuditTag  //112 bytes
-	Audit_end   AuditTag  //112 bytes
+	AuditStart  AuditTag  //112 bytes
+	AuditEnd    AuditTag  //112 bytes
 	Unknown5    uint32    //4 bytes
 	Unknown6    [60]byte  //60 bytes
 	Tag         headertag //1028 bytes
@@ -1043,8 +1044,8 @@ func (t audittag) String() string {
 
 type AuditTag struct { //112 bytes
 	Time     uint64   //8 bytes Windows 64-bit timestamp
-	Tag_1    audittag //50 bytes
-	Tag_2    audittag
+	Tag1     audittag //50 bytes
+	Tag2     audittag
 	Unknown1 uint32 //4 bytes
 }
 
