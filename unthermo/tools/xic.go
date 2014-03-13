@@ -1,4 +1,4 @@
-/*XIC prints mass chromatograms for given m/z's.
+/*The XIC tool prints mass chromatograms for specific m/z's.
 
   For every m/z given, it prints the peak with highest intensity in interval
   [mz-tol ppm,mz+tol ppm] for every MS-1 scan.
@@ -62,7 +62,7 @@ func init() {
 }
 
 /*
- * Actual execution
+  Actual execution
  */
 func main() {
 	for _, filename := range flag.Args() {

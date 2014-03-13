@@ -1,3 +1,8 @@
+//The printspectrum tool prints out the spectrum (mz and intensity values) of a
+//Thermo RAW File
+//
+//  Every line of the output is a peak registered by the mass spectrometer
+//  characterized by an m/z value in Da and an intensity in the mass spectrometer's unit of abundance
 package main
 
 import (
