@@ -1,3 +1,5 @@
+//A set of tools using the unthermo library
+//
 //The printspectrum tool prints out the spectrum (mz and intensity values) of a
 //Thermo RAW File
 //
