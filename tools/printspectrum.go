@@ -22,7 +22,7 @@ func main() {
 	rf.Close()
 }
 
-//Print mz and Intensity of every peak in the spectrum
+//Print m/z and Intensity of every peak in the spectrum
 func printspectrum(scan ms.Scan) {
 	for _, peak := range scan.Spectrum {
 		fmt.Println(peak.Mz, peak.I)

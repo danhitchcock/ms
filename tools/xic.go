@@ -23,6 +23,7 @@
 package main
 
 import (
+	"bitbucket.org/proteinspector/ms"
 	"bitbucket.org/proteinspector/ms/unthermo"
 	"flag"
 	"fmt"
@@ -66,14 +67,15 @@ func init() {
 func main() {
 	for _, filename := range flag.Args() {
 		//xic gets called on each MS1 Scan read by the unthermo library
-		unthermo.Open(filename)
-		unthermo.AllScans(xic)
-		unthermo.Close()
+		file := unthermo.Open(filename)
+		
+		file.AllScans(xic)
+		file.Close()
 	}
 }
 
 //Algorithm calculating and outputting the peaks belonging to the XIC's
-var xic = func(scan unthermo.Scan) {
+var xic = func(scan ms.Scan) {
 	//if an MS1 Scan:
 	if scan.MSLevel == 1 {
 		//for every mz in the argument list
@@ -85,12 +87,14 @@ var xic = func(scan unthermo.Scan) {
 			highi := sort.Search(len(scan.Spectrum), func(i int) bool { return scan.Spectrum[i].Mz >= mz+10e-6*tol*mz})
 			//if there is any data in this interval
 			if highi > lowi {
-				var maxIn unthermo.Peak
+				//find the peak with maximal intensity
+				var maxIn ms.Peak
 				for _, peak := range scan.Spectrum[lowi:highi] {
 					if peak.I >= maxIn.I {
 						maxIn = peak
 					}
 				}
+				//and print it.
 				fmt.Println(mz, maxIn.Time, maxIn.I)
 			}
 		}

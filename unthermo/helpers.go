@@ -6,8 +6,7 @@ import (
 	"bitbucket.org/proteinspector/ms"
 )
 
-//Thermo RAW File
-type RawFile struct {
+type File struct {
 	//the file on disk
 	file *os.File
 	//scanevents contains additional data about the scans (Hz-m/z conversion, scan type, ...)
@@ -17,8 +16,8 @@ type RawFile struct {
 	scanindex ScanIndex
 }
 
-// Opens the supplied filename and reads the indices from the RAW file in memory
-func Open(fn string) RawFile {
+//Opens the supplied filename and reads the indices from the RAW file in memory. Multiple files may be read concurrently.
+func Open(fn string) File {
 	var err error
 	file, err := os.Open(fn)
 	if err != nil {
@@ -54,18 +53,18 @@ func Open(fn string) RawFile {
 		scanindex[i].Offset += rh.DataAddr
 	}
 	
-	return RawFile{file: file, scanevents: scanevents, scanindex: scanindex}
+	return File{file: file, scanevents: scanevents, scanindex: scanindex}
 }
 
 //Close the RAW file
-func (rf RawFile) Close() error {
+func (rf File) Close() error {
 	return rf.file.Close()
 }
 
 /* 
  * Experimental: read out chromatography data from a connected instrument
  */
-func (rf RawFile) Chromatography(instr int) CDataPackets {
+func (rf File) Chromatography(instr int) CDataPackets {
 	info, ver := readHeaders(rf.file)
 
 	if uint32(instr) > info.Preamble.NControllers-1 {
@@ -96,7 +95,7 @@ func (rf RawFile) Chromatography(instr int) CDataPackets {
  *
  * On every encountered MS Scan, the function fun is called
  */
-func (rf *RawFile) AllScans(fun func(ms.Scan)) {
+func (rf *File) AllScans(fun func(ms.Scan)) {
 	for i, sie := range rf.scanindex {
 		scn := new(ScanDataPacket)
 		ReadBetween(rf.file, sie.Offset, sie.Offset+uint64(sie.DataPacketSize), 0, scn)
@@ -105,11 +104,11 @@ func (rf *RawFile) AllScans(fun func(ms.Scan)) {
 }
 
 //Returns the number of scans in the index
-func (rf *RawFile) NScans() int {
+func (rf *File) NScans() int {
 	return len(rf.scanindex)
 }
 
-func (rf *RawFile) Scan(sn int) ms.Scan {
+func (rf *File) Scan(sn int) ms.Scan {
 	if sn < 1 || sn > rf.NScans() {
 		log.Fatal("Scan Number ", sn, " is out of bounds [1, ", rf.NScans(), "]")
 	}
