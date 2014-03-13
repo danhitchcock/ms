@@ -1,5 +1,5 @@
 #ms
-A library to deal with Mass Spectrometry data
+A Go library to deal with Mass Spectrometry data
 
 Includes unthermo to read Thermo Finnigan RAW files without external API's
 a successor to [unfinnigan](http://code.google.com/p/unfinnigan/wiki/FileLayoutOverview)
@@ -14,4 +14,4 @@ a successor to [unfinnigan](http://code.google.com/p/unfinnigan/wiki/FileLayoutO
   
     [macos amd64 executable](https://bitbucket.org/proteinspector/ms/downloads/xicmac)
   
-    Documentation over [here](https://bitbucket.org/proteinspector/ms/unthermo/src/master/tools/xic.go)
+    Documentation over [here](https://bitbucket.org/proteinspector/ms/src/master/unthermo/tools/xic.go)
