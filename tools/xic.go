@@ -23,7 +23,7 @@
 package main
 
 import (
-	"bitbucket.org/proteinspector/unthermo"
+	"bitbucket.org/proteinspector/ms/unthermo"
 	"flag"
 	"fmt"
 	"strconv"

@@ -3,6 +3,7 @@ package unthermo
 import (
 	"log"
 	"os"
+	"bitbucket.org/proteinspector/ms"
 )
 
 //Thermo RAW File
@@ -95,7 +96,7 @@ func (rf RawFile) Chromatography(instr int) CDataPackets {
  *
  * On every encountered MS Scan, the function fun is called
  */
-func (rf *RawFile) AllScans(fun func(Scan)) {
+func (rf *RawFile) AllScans(fun func(ms.Scan)) {
 	for i, sie := range rf.scanindex {
 		scn := new(ScanDataPacket)
 		ReadBetween(rf.file, sie.Offset, sie.Offset+uint64(sie.DataPacketSize), 0, scn)
@@ -108,7 +109,7 @@ func (rf *RawFile) NScans() int {
 	return len(rf.scanindex)
 }
 
-func (rf *RawFile) Scan(sn int) Scan {
+func (rf *RawFile) Scan(sn int) ms.Scan {
 	if sn < 1 || sn > rf.NScans() {
 		log.Fatal("Scan Number ", sn, " is out of bounds [1, ", rf.NScans(), "]")
 	}
@@ -124,9 +125,9 @@ func (rf *RawFile) Scan(sn int) Scan {
  * Converts the three Thermo scan data structures into a general structure
  */
 func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
-	sie *ScanIndexEntry) Scan {
+	sie *ScanIndexEntry) ms.Scan {
 
-	var scan Scan
+	var scan ms.Scan
 
 	scan.MSLevel = scanevent.Preamble[6]
 
@@ -138,7 +139,7 @@ func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 					float64(rawscan.Profile.Chunks[i].Firstbin+j)*rawscan.Profile.Step) +
 					float64(rawscan.Profile.Chunks[i].Fudge)
 				scan.Spectrum = append(scan.Spectrum,
-					Peak{Time: sie.Time, Mz: tmpmz, I: rawscan.Profile.Chunks[i].Signal[j]})
+					ms.Peak{Time: sie.Time, Mz: tmpmz, I: rawscan.Profile.Chunks[i].Signal[j]})
 			}
 		}
 	} else {
@@ -146,7 +147,7 @@ func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 		//overlap with profiles, Thermo always does centroiding just for fun
 		for i := uint32(0); i < rawscan.PeakList.Count; i++ {
 			scan.Spectrum = append(scan.Spectrum,
-				Peak{Time: sie.Time, Mz: float64(rawscan.PeakList.Peaks[i].Mz),
+				ms.Peak{Time: sie.Time, Mz: float64(rawscan.PeakList.Peaks[i].Mz),
 					I: rawscan.PeakList.Peaks[i].Abundance})
 		}
 	}
