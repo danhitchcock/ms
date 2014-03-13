@@ -22,6 +22,7 @@ const (
 )
 
 //Spectrum implements sort.Interface for []Peak based on m/z
+
 func (a Spectrum) Len() int           { return len(a) }
 func (a Spectrum) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a Spectrum) Less(i, j int) bool { return a[i].Mz < a[j].Mz }
