@@ -33,29 +33,29 @@ func (a Spectrum) Less(i, j int) bool { return a[i].Mz < a[j].Mz }
  *
  * On every encountered MS Scan, the function fun is called
  */
-func AllScans(fun func(Scan)) {
-	for i, sie := range scanindex {
+func (rf *RawFile) AllScans(fun func(Scan)) {
+	for i, sie := range rf.scanindex {
 		scn := new(ScanDataPacket)
-		ReadBetween(sie.Offset, sie.Offset+uint64(sie.DataPacketSize), 0, scn)
-		fun(scan(scn, &scanevents[i], &sie))
+		ReadBetween(rf.file, sie.Offset, sie.Offset+uint64(sie.DataPacketSize), 0, scn)
+		fun(scan(scn, &rf.scanevents[i], &sie))
 	}
 }
 
 //Returns the number of scans in the index
-func NScans() int {
-	return len(scanindex)
+func (rf *RawFile) NScans() int {
+	return len(rf.scanindex)
 }
 
-func ScanNumber(sn int) Scan {
-	if sn < 1 || sn > NScans() {
-		log.Fatal("Scan Number ", sn, " is out of bounds [1, ", NScans(), "]")
+func (rf *RawFile) Scan(sn int) Scan {
+	if sn < 1 || sn > rf.NScans() {
+		log.Fatal("Scan Number ", sn, " is out of bounds [1, ", rf.NScans(), "]")
 	}
 
 	//read Scan Packet for the above scan number
 	scn := new(ScanDataPacket)
-	ReadBetween(scanindex[sn-1].Offset, scanindex[sn-1].Offset+uint64(scanindex[sn-1].DataPacketSize), 0, scn)
+	ReadBetween(rf.file, rf.scanindex[sn-1].Offset, rf.scanindex[sn-1].Offset+uint64(rf.scanindex[sn-1].DataPacketSize), 0, scn)
 	
-	return scan(scn, &scanevents[sn-1], &scanindex[sn-1])
+	return scan(scn, &rf.scanevents[sn-1], &rf.scanindex[sn-1])
 }
 
 /*

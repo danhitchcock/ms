@@ -903,7 +903,7 @@ func binaryread(r io.Reader, data interface{}) {
 
 //For a version v Thermo File, starting at position pos, reads
 //data, and returns the position in the file afterwards
-func ReadAt(pos uint64, v Version, data Reader) uint64 {
+func ReadAt(file io.ReadSeeker, pos uint64, v Version, data Reader) uint64 {
 	spos, err := file.Seek(int64(pos), 0)
 	if err != nil {
 		log.Fatal("error seeking file", err)
@@ -921,7 +921,7 @@ func ReadAt(pos uint64, v Version, data Reader) uint64 {
 
 //Copies the range in memory and then fills the Reader
 //This tested faster than bufio or just reading away
-func ReadBetween(begin uint64, end uint64, v Version, data Reader) {
+func ReadBetween(file io.ReadSeeker, begin uint64, end uint64, v Version, data Reader) {
 	_, err := file.Seek(int64(begin), 0)
 	if err != nil {
 		log.Fatal("error seeking file", err)
@@ -946,18 +946,18 @@ func (data ScanEvent) Convert(v float64) float64 {
 }
 
 //Read only the initial header part of the file (for the juicy addresses)
-func readHeaders() (RawFileInfo, Version) {
+func readHeaders(file io.ReadSeeker) (RawFileInfo, Version) {
 	hdr := new(FileHeader)
 	info := new(RawFileInfo)
 
 	//save position in file after reading, we need to sequentially
 	//read some things in order to get to actual byte addresses
-	pos := ReadAt(0, 0, hdr)
+	pos := ReadAt(file, 0, 0, hdr)
 	ver := hdr.Version
 
-	pos = ReadAt(pos, ver, new(SequencerRow))
-	pos = ReadAt(pos, 0, new(AutoSamplerInfo))
-	ReadAt(pos, ver, info)
+	pos = ReadAt(file, pos, ver, new(SequencerRow))
+	pos = ReadAt(file, pos, 0, new(AutoSamplerInfo))
+	ReadAt(file, pos, ver, info)
 
 	return *info, ver
 }
