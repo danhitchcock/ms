@@ -1,8 +1,7 @@
-#ms
-A Go library to deal with Mass Spectrometry data
+#ms: A Go library to deal with Mass Spectrometry data.
 
-Includes unthermo to read Thermo Finnigan RAW files without external API's
-a successor to [unfinnigan](http://code.google.com/p/unfinnigan/wiki/FileLayoutOverview)
+Includes the unthermo library that read Thermo Finnigan RAW files without external API's,
+a successor to [unfinnigan](http://code.google.com/p/unfinnigan/wiki/FileLayoutOverview).
 
 ## Usable tools:
 
