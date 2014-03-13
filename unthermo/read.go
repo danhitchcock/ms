@@ -209,6 +209,18 @@ func (data *ScanEvent) Read(r io.Reader, v Version) {
 	}
 }
 
+//Convert Hz values to m/z
+func (data ScanEvent) Convert(v float64) float64 {
+	switch data.Nparam {
+	case 4:
+		return data.A + data.B/v + data.C/v/v
+	case 5, 7:
+		return data.A + data.B/v/v + data.C/v/v/v/v
+	default:
+		return v
+	}
+}
+
 type ScanEvent struct {
 	Preamble    [132]uint8 //128 bytes from v63 on, 120 in v62, 80 in v57, 41 below that
 	//Preamble[6] == mslev 
@@ -625,7 +637,6 @@ type AutoSamplerPreamble struct {
 /*
  * SequencerRow contains more information about what the autosampler did
  */
-
 func (data *SequencerRow) Read(r io.Reader, v Version) {
 	binaryread(r, &data.Injection)
 
@@ -903,7 +914,7 @@ func binaryread(r io.Reader, data interface{}) {
 
 //For a version v Thermo File, starting at position pos, reads
 //data, and returns the position in the file afterwards
-func ReadAt(rs io.ReadSeeker, pos uint64, v Version, data Reader) uint64 {
+func readAt(rs io.ReadSeeker, pos uint64, v Version, data Reader) uint64 {
 	spos, err := rs.Seek(int64(pos), 0)
 	if err != nil {
 		log.Fatal("error seeking file", err)
@@ -921,7 +932,7 @@ func ReadAt(rs io.ReadSeeker, pos uint64, v Version, data Reader) uint64 {
 
 //Copies the range in memory and then fills the Reader
 //This tested faster than bufio or just reading away
-func ReadBetween(rs io.ReadSeeker, begin uint64, end uint64, v Version, data Reader) {
+func readBetween(rs io.ReadSeeker, begin uint64, end uint64, v Version, data Reader) {
 	_, err := rs.Seek(int64(begin), 0)
 	if err != nil {
 		log.Fatal("error seeking file", err)
@@ -933,18 +944,6 @@ func ReadBetween(rs io.ReadSeeker, begin uint64, end uint64, v Version, data Rea
 	data.Read(bytes.NewReader(b), v)
 }
 
-//Convert Hz values to m/z
-func (data ScanEvent) Convert(v float64) float64 {
-	switch data.Nparam {
-	case 4:
-		return data.A + data.B/v + data.C/v/v
-	case 5, 7:
-		return data.A + data.B/v/v + data.C/v/v/v/v
-	default:
-		return v
-	}
-}
-
 //Read only the initial header part of the file (for the juicy addresses)
 func readHeaders(rs io.ReadSeeker) (RawFileInfo, Version) {
 	hdr := new(FileHeader)
@@ -952,12 +951,12 @@ func readHeaders(rs io.ReadSeeker) (RawFileInfo, Version) {
 
 	//save position in file after reading, we need to sequentially
 	//read some things in order to get to actual byte addresses
-	pos := ReadAt(rs, 0, 0, hdr)
+	pos := readAt(rs, 0, 0, hdr)
 	ver := hdr.Version
 
-	pos = ReadAt(rs, pos, ver, new(SequencerRow))
-	pos = ReadAt(rs, pos, 0, new(AutoSamplerInfo))
-	ReadAt(rs, pos, ver, info)
+	pos = readAt(rs, pos, ver, new(SequencerRow))
+	pos = readAt(rs, pos, 0, new(AutoSamplerInfo))
+	readAt(rs, pos, ver, info)
 
 	return *info, ver
 }

@@ -8,7 +8,7 @@ import (
 
 type File struct {
 	//the file on disk
-	file *os.File
+	f *os.File
 	//scanevents contains additional data about the scans (Hz-m/z conversion, scan type, ...)
 	scanevents ScanEvents
 	//scanindexentries is an index containing the scan addresses and additional info
@@ -17,21 +17,20 @@ type File struct {
 }
 
 //Opens the supplied filename and reads the indices from the RAW file in memory. Multiple files may be read concurrently.
-func Open(fn string) File {
-	var err error
-	file, err := os.Open(fn)
+func Open(fn string) (file File, err error) {
+	f, err := os.Open(fn)
 	if err != nil {
-		log.Fatal("error opening file", err)
+		return File{f:f}, err
 	}
 	
 	//Read headers for file version and RunHeader addresses.
-	info, ver := readHeaders(file)
+	info, ver := readHeaders(f)
 	rh := new(RunHeader)
 
 	//read runheaders until we have a non-empty Scantrailer Address
 	//indicating it is the runheader for a MS device (not a chromatography device)
 	for i := 0; i < len(info.Preamble.RunHeaderAddr) && rh.ScantrailerAddr == 0; i++ {
-		ReadAt(file, info.Preamble.RunHeaderAddr[i], ver, rh)
+		readAt(f, info.Preamble.RunHeaderAddr[i], ver, rh)
 	}
 	if rh.ScantrailerAddr == 0 {
 		log.Fatal("Couldn't find MS run header in file at positions ", info.Preamble.RunHeaderAddr)
@@ -42,37 +41,37 @@ func Open(fn string) File {
 	//The list of them starts an uint32 later than ScantrailerAddr
 	nScans := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
 	scanevents := make(ScanEvents, nScans)
-	ReadBetween(file, rh.ScantrailerAddr+4, rh.ScanparamsAddr, ver, scanevents)
+	readBetween(f, rh.ScantrailerAddr+4, rh.ScanparamsAddr, ver, scanevents)
 
 	//read all scanindexentries at once
 	scanindex := make(ScanIndex, nScans)
-	ReadBetween(file, rh.ScanindexAddr, rh.ScantrailerAddr, ver, scanindex)
+	readBetween(f, rh.ScanindexAddr, rh.ScantrailerAddr, ver, scanindex)
 	
 	//make the offsets absolute in the file instead of relative to the data address
 	for i := range scanindex {
 		scanindex[i].Offset += rh.DataAddr
 	}
 	
-	return File{file: file, scanevents: scanevents, scanindex: scanindex}
+	return File{f: f, scanevents: scanevents, scanindex: scanindex}, err
 }
 
 //Close the RAW file
 func (rf File) Close() error {
-	return rf.file.Close()
+	return rf.f.Close()
 }
 
 /* 
  * Experimental: read out chromatography data from a connected instrument
  */
 func (rf File) Chromatography(instr int) CDataPackets {
-	info, ver := readHeaders(rf.file)
+	info, ver := readHeaders(rf.f)
 
 	if uint32(instr) > info.Preamble.NControllers-1 {
 		log.Fatal(instr, " is higher than number of extra controllers: ", info.Preamble.NControllers-1)
 	}
 	
 	rh := new(RunHeader)
-	ReadAt(rf.file, info.Preamble.RunHeaderAddr[instr], ver, rh)
+	readAt(rf.f, info.Preamble.RunHeaderAddr[instr], ver, rh)
 	//The ScantrailerAddr has to be 0. in other words: we're not looking at the MS runheader
 	if rh.ScantrailerAddr != 0 {
 		log.Fatal("You selected the MS instrument, no chromatography data can be read.")
@@ -85,7 +84,7 @@ func (rf File) Chromatography(instr int) CDataPackets {
 	nScan := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
 	cdata := make(CDataPackets, nScan)
 	for i := uint64(0); i < nScan; i++ {
-		ReadAt(rf.file, rh.DataAddr+i*16, ver, &cdata[i]) //16 bytes of CDataPacket
+		readAt(rf.f, rh.DataAddr+i*16, ver, &cdata[i]) //16 bytes of CDataPacket
 	}
 	return cdata
 }
@@ -98,7 +97,7 @@ func (rf File) Chromatography(instr int) CDataPackets {
 func (rf *File) AllScans(fun func(ms.Scan)) {
 	for i, sie := range rf.scanindex {
 		scn := new(ScanDataPacket)
-		ReadBetween(rf.file, sie.Offset, sie.Offset+uint64(sie.DataPacketSize), 0, scn)
+		readBetween(rf.f, sie.Offset, sie.Offset+uint64(sie.DataPacketSize), 0, scn)
 		fun(scan(scn, &rf.scanevents[i], &sie))
 	}
 }
@@ -115,7 +114,7 @@ func (rf *File) Scan(sn int) ms.Scan {
 
 	//read Scan Packet for the above scan number
 	scn := new(ScanDataPacket)
-	ReadBetween(rf.file, rf.scanindex[sn-1].Offset, rf.scanindex[sn-1].Offset+uint64(rf.scanindex[sn-1].DataPacketSize), 0, scn)
+	readBetween(rf.f, rf.scanindex[sn-1].Offset, rf.scanindex[sn-1].Offset+uint64(rf.scanindex[sn-1].DataPacketSize), 0, scn)
 	
 	return scan(scn, &rf.scanevents[sn-1], &rf.scanindex[sn-1])
 }

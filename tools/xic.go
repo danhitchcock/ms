@@ -67,7 +67,7 @@ func init() {
 func main() {
 	for _, filename := range flag.Args() {
 		//xic gets called on each MS1 Scan read by the unthermo library
-		file := unthermo.Open(filename)
+		file, _ := unthermo.Open(filename)
 		
 		file.AllScans(xic)
 		file.Close()

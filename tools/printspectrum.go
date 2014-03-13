@@ -14,7 +14,7 @@ func main() {
 	filename := os.Args[2]
 	
 	//open RAW file
-	rf := unthermo.Open(filename)
+	rf, _ := unthermo.Open(filename)
 	
 	//Print the Spectrum at the supplied scan number
 	printspectrum(rf.Scan(scannumber))
