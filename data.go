@@ -1,7 +1,6 @@
 package ms
 
 type Peak struct {
-	Time float64
 	Mz   float64
 	I    float32
 }
@@ -9,9 +8,10 @@ type Peak struct {
 type Spectrum []Peak
 
 type Scan struct {
-	Spectrum
-	MSLevel    uint8
 	Activation Activation
+	MSLevel    uint8
+	Spectrum
+	Time float64
 }
 
 type Activation int

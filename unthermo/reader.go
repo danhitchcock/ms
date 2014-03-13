@@ -108,6 +108,7 @@ func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 
 	var scan ms.Scan
 
+	scan.Time = sie.Time
 	scan.MSLevel = scanevent.Preamble[6]
 
 	if rawscan.Profile.PeakCount > 0 {
@@ -118,7 +119,7 @@ func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 					float64(rawscan.Profile.Chunks[i].Firstbin+j)*rawscan.Profile.Step) +
 					float64(rawscan.Profile.Chunks[i].Fudge)
 				scan.Spectrum = append(scan.Spectrum,
-					ms.Peak{Time: sie.Time, Mz: tmpmz, I: rawscan.Profile.Chunks[i].Signal[j]})
+					ms.Peak{Mz: tmpmz, I: rawscan.Profile.Chunks[i].Signal[j]})
 			}
 		}
 	} else {
@@ -126,7 +127,7 @@ func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 		//overlap with profiles, Thermo always does centroiding just for fun
 		for i := uint32(0); i < rawscan.PeakList.Count; i++ {
 			scan.Spectrum = append(scan.Spectrum,
-				ms.Peak{Time: sie.Time, Mz: float64(rawscan.PeakList.Peaks[i].Mz),
+				ms.Peak{Mz: float64(rawscan.PeakList.Peaks[i].Mz),
 					I: rawscan.PeakList.Peaks[i].Abundance})
 		}
 	}

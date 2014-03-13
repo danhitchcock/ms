@@ -95,7 +95,7 @@ var xic = func(scan ms.Scan) {
 					}
 				}
 				//and print it.
-				fmt.Println(mz, maxIn.Time, maxIn.I)
+				fmt.Println(mz, scan.Time, maxIn.I)
 			}
 		}
 	}
