@@ -1,7 +1,7 @@
 package unthermo
 
 import (
-	"log"
+	"errors"
 	"os"
 	"bitbucket.org/proteinspector/ms"
 )
@@ -20,7 +20,7 @@ type File struct {
 func Open(fn string) (file File, err error) {
 	f, err := os.Open(fn)
 	if err != nil {
-		return File{f:f}, err
+		return
 	}
 	
 	//Read headers for file version and RunHeader addresses.
@@ -33,7 +33,8 @@ func Open(fn string) (file File, err error) {
 		readAt(f, info.Preamble.RunHeaderAddr[i], ver, rh)
 	}
 	if rh.ScantrailerAddr == 0 {
-		log.Fatal("Couldn't find MS run header in file at positions ", info.Preamble.RunHeaderAddr)
+		err = errors.New("Couldn't find MS run header in file")
+		return
 	}
 
 	//For later conversion of frequency values to m/z, we need a ScanEvent
