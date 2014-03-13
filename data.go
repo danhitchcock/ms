@@ -1,4 +1,4 @@
-//A mass spectrometry library
+//A library for mass spectrometry data
 package ms
 
 type Peak struct {
