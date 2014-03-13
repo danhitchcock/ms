@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bitbucket.org/proteinspector/ms/unthermo"
 	"bitbucket.org/proteinspector/ms"
+	"bitbucket.org/proteinspector/ms/unthermo"
 	"fmt"
 	"os"
 	"strconv"
@@ -12,13 +12,13 @@ func main() {
 	//Parse arguments
 	scannumber, _ := strconv.Atoi(os.Args[1])
 	filename := os.Args[2]
-	
+
 	//open RAW file
 	rf, _ := unthermo.Open(filename)
-	
+
 	//Print the Spectrum at the supplied scan number
 	printspectrum(rf.Scan(scannumber))
-	
+
 	rf.Close()
 }
 

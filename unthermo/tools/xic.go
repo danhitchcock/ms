@@ -27,9 +27,9 @@ import (
 	"bitbucket.org/proteinspector/ms/unthermo"
 	"flag"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
-	"sort"
 )
 
 /*
@@ -68,7 +68,7 @@ func main() {
 	for _, filename := range flag.Args() {
 		//xic gets called on each MS1 Scan read by the unthermo library
 		file, _ := unthermo.Open(filename)
-		
+
 		file.AllScans(xic)
 		file.Close()
 	}
@@ -81,10 +81,10 @@ var xic = func(scan ms.Scan) {
 		//for every mz in the argument list
 		for _, mz := range mzs {
 			//print the peaks within tolerance.
-			//The spectrum is sorted by m/z so we can search for the two 
+			//The spectrum is sorted by m/z so we can search for the two
 			//border peaks and get the range between them
-			lowi := sort.Search(len(scan.Spectrum), func(i int) bool { return scan.Spectrum[i].Mz >= mz-10e-6*tol*mz})
-			highi := sort.Search(len(scan.Spectrum), func(i int) bool { return scan.Spectrum[i].Mz >= mz+10e-6*tol*mz})
+			lowi := sort.Search(len(scan.Spectrum), func(i int) bool { return scan.Spectrum[i].Mz >= mz-10e-6*tol*mz })
+			highi := sort.Search(len(scan.Spectrum), func(i int) bool { return scan.Spectrum[i].Mz >= mz+10e-6*tol*mz })
 			//if there is any data in this interval
 			if highi > lowi {
 				//find the peak with maximal intensity
