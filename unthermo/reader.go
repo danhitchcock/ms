@@ -89,7 +89,8 @@ func (rf *File) NScans() int {
 //Return the Scan at a certain scan number
 func (rf *File) Scan(sn int) ms.Scan {
 	if sn < 1 || sn > rf.NScans() {
-		log.Fatal("Scan Number ", sn, " is out of bounds [1, ", rf.NScans(), "]")
+		log.Print("Scan Number ", sn, " is out of bounds [1, ", rf.NScans(), "]")
+		return *new(ms.Scan)
 	}
 
 	//read Scan Packet for the above scan number
@@ -143,14 +144,14 @@ type reader interface {
 func readAt(rs io.ReadSeeker, pos uint64, v Version, data reader) uint64 {
 	spos, err := rs.Seek(int64(pos), 0)
 	if err != nil {
-		log.Fatal("error seeking file", err)
+		log.Println("error seeking file", err)
 	}
 
 	data.Read(rs, v)
 
 	spos, err = rs.Seek(0, 1)
 	if err != nil {
-		log.Fatal("error determining position in file", err)
+		log.Println("error determining position in file", err)
 	}
 
 	return uint64(spos)
@@ -161,7 +162,7 @@ func readAt(rs io.ReadSeeker, pos uint64, v Version, data reader) uint64 {
 func readBetween(rs io.ReadSeeker, begin uint64, end uint64, v Version, data reader) {
 	_, err := rs.Seek(int64(begin), 0)
 	if err != nil {
-		log.Fatal("error seeking file", err)
+		log.Println("error seeking file", err)
 	}
 
 	b := make([]byte, end-begin) //may fail because of memory requirements
@@ -1088,18 +1089,20 @@ func binaryread(r io.Reader, data interface{}) {
 /*
   Experimental: read out chromatography data from a connected instrument
 */
-func (rf File) Chromatography(instr int) CDataPackets {
+func (rf File) Chromatography(instr int) (cdata CDataPackets) {
 	info, ver := readHeaders(rf.f)
 
 	if uint32(instr) > info.Preamble.NControllers-1 {
-		log.Fatal(instr, " is higher than number of extra controllers: ", info.Preamble.NControllers-1)
+		log.Print(instr, " is higher than number of extra controllers: ", info.Preamble.NControllers-1)
+		return
 	}
 
 	rh := new(RunHeader)
 	readAt(rf.f, info.Preamble.RunHeaderAddr[instr], ver, rh)
 	//The ScantrailerAddr has to be 0. in other words: we're not looking at the MS runheader
 	if rh.ScantrailerAddr != 0 {
-		log.Fatal("You selected the MS instrument, no chromatography data can be read.")
+		log.Println("You selected the MS instrument, no chromatography data can be read.")
+		return
 	}
 
 	//The instrument RunHeader contains an interesting address: DataAddr
@@ -1107,7 +1110,7 @@ func (rf File) Chromatography(instr int) CDataPackets {
 	//containers at ScanIndexAddr. Less data can be read for now
 
 	nScan := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
-	cdata := make(CDataPackets, nScan)
+	cdata = make(CDataPackets, nScan)
 	for i := uint64(0); i < nScan; i++ {
 		readAt(rf.f, rh.DataAddr+i*16, ver, &cdata[i]) //16 bytes of CDataPacket
 	}
