@@ -111,6 +111,8 @@ func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
 
 	scan.Time = sie.Time
 	scan.MSLevel = scanevent.Preamble[6]
+	scan.Activation = ms.Activation(scanevent.Preamble[24])
+	scan.Analyzer = ms.Analyzer(scanevent.Preamble[40])
 
 	if rawscan.Profile.PeakCount > 0 {
 		//convert Hz values into m/z and save the profile peaks
@@ -316,6 +318,7 @@ func (data *TrailerLength) Read(r io.Reader, v Version) {
 type ScanEvent struct {
 	Preamble [132]uint8 //128 bytes from v63 on, 120 in v62, 80 in v57, 41 below that
 	//Preamble[6] == ms-level
+	//Preamble[24] == activation
 	Nprecursors uint32
 
 	Reaction []Reaction

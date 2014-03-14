@@ -3,8 +3,8 @@ package ms
 
 //Peak represents an ion peak
 type Peak struct {
-	Mz   float64
-	I    float32
+	Mz float64
+	I  float32
 }
 
 //Spectrum is the collection of peaks
@@ -13,6 +13,7 @@ type Spectrum []Peak
 //Scan represents the peak acquisition event of the mass spectrometer
 type Scan struct {
 	Activation Activation
+	Analyzer Analyzer
 	MSLevel    uint8
 	Spectrum
 	Time float64
@@ -22,10 +23,24 @@ type Scan struct {
 type Activation int
 
 const (
-	//CID stands for Collision induced dissociation
-	CID Activation = iota
 	//HCD for Higher-energy collisional dissociation
-	HCD
+	HCD Activation = iota + 1
+	_
+	_
+	//CID stands for Collision induced dissociation
+	CID
+)
+
+type Analyzer int
+
+const (
+	ITMS Analyzer = iota
+	TQMS
+	SQMS
+	TOFMS
+	FTMS
+	Sector
+	Undefined
 )
 
 //Spectrum implements sort.Interface for []Peak based on m/z
