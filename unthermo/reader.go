@@ -97,7 +97,7 @@ func (rf *File) Scan(sn int) (scan ms.Scan) {
 	for j := range rf.scanevents[sn-1].Reaction {
 		scan.PrecursorMzs[j] = rf.scanevents[sn-1].Reaction[j].Precursormz
 	}
-	scan.Spectrum = func() ms.Spectrum { return spectrum(rf, sn) }
+	scan.Spectrum = func() ms.Spectrum { return rf.spectrum(sn) }
 	return
 }
 
@@ -107,7 +107,7 @@ func (rf *File) NScans() int {
 }
 
 //Spectrum returns an ms.Spectrum belonging to the scan number in argument
-var spectrum = func(rf *File, sn int) (s ms.Spectrum) {
+func (rf *File) spectrum(sn int) (s ms.Spectrum) {
 	//read Scan Packet for the scan
 	scn := new(ScanDataPacket)
 	readBetween(rf.f, rf.scanindex[sn-1].Offset, rf.scanindex[sn-1].Offset+uint64(rf.scanindex[sn-1].DataPacketSize), 0, scn)
