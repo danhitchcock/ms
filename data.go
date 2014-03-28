@@ -14,6 +14,10 @@ type Spectrum []Peak
 type Scan struct {
 	Analyzer Analyzer
 	MSLevel  uint8
+	//Spectrum is a function forcing the read of a spectrum,
+	//which is "delayed" for efficiency reasons. If it was not delayed
+	//and Spectrum was a data structure, the full spectrum would always
+	//be read, even if only another field (cheaper to obtain) is requested.
 	Spectrum func() Spectrum
 	//PrecursorMzs is only filled with mz values at MSx scans.
 	PrecursorMzs []float64

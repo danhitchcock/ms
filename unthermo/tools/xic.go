@@ -80,13 +80,13 @@ var xic = func(scan ms.Scan) {
 	if scan.MSLevel == 1 {
 		//for every mz in the argument list
 		for _, mz := range mzs {
-			spectrum := scan.Spectrum()
-			//print the peaks within tolerance.
+			//look for the peaks within tolerance.
 			//The spectrum is sorted by m/z so we can search for the two
-			//border peaks and get the range between them
+			//border peaks and get the range between them.
+			spectrum := scan.Spectrum()
 			lowi := sort.Search(len(spectrum), func(i int) bool { return spectrum[i].Mz >= mz-10e-6*tol*mz })
 			highi := sort.Search(len(spectrum), func(i int) bool { return spectrum[i].Mz >= mz+10e-6*tol*mz })
-			//if there is any data in this interval
+			//If there is any data in this interval
 			if highi > lowi {
 				//find the peak with maximal intensity
 				var maxIn ms.Peak
