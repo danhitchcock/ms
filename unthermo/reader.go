@@ -65,77 +65,74 @@ func Open(fn string) (file File, err error) {
 }
 
 //Close closes the RAW file
-func (rf File) Close() error {
+func (rf *File) Close() error {
 	return rf.f.Close()
 }
 
 /*
-  Convenience function that runs over all spectra in the raw file
+   AllScans is a convenience function that runs over all spectra in the raw file
 
-  On every encountered MS Scan, the function fun is called
+   On every encountered MS Scan, the function fun is called
 */
-func (rf *File) AllScans(fun func(ms.Scan)) {
-	for i, sie := range rf.scanindex {
-		scn := new(ScanDataPacket)
-		readBetween(rf.f, sie.Offset, sie.Offset+uint64(sie.DataPacketSize), 0, scn)
-		fun(scan(scn, &rf.scanevents[i], &sie))
+func (rf *File) AllScans(fun func(scan ms.Scan)) {
+	for i := 1; i <= rf.NScans(); i++ {
+		fun(rf.Scan(i))
 	}
 }
 
-//Returns the number of scans in the index
+/*
+   Scan returns the scan at the scan number in argument
+*/
+func (rf *File) Scan(sn int) (scan ms.Scan) {
+	if sn < 1 || sn > rf.NScans() {
+		log.Print("Scan Number ", sn, " is out of bounds [1, ", rf.NScans(), "]")
+		return
+	}
+
+	scan.Time = rf.scanindex[sn-1].Time
+	scan.MSLevel = rf.scanevents[sn-1].Preamble[6]
+	scan.Analyzer = ms.Analyzer(rf.scanevents[sn-1].Preamble[40])
+
+	scan.PrecursorMzs = make([]float64, len(rf.scanevents[sn-1].Reaction))
+	for j := range rf.scanevents[sn-1].Reaction {
+		scan.PrecursorMzs[j] = rf.scanevents[sn-1].Reaction[j].Precursormz
+	}
+	scan.Spectrum = func() ms.Spectrum { return spectrum(rf, sn) }
+	return
+}
+
+//NScans returns the number of scans in the index
 func (rf *File) NScans() int {
 	return len(rf.scanindex)
 }
 
-//Return the Scan at a certain scan number
-func (rf *File) Scan(sn int) ms.Scan {
-	if sn < 1 || sn > rf.NScans() {
-		log.Print("Scan Number ", sn, " is out of bounds [1, ", rf.NScans(), "]")
-		return *new(ms.Scan)
-	}
-
-	//read Scan Packet for the above scan number
+//Spectrum returns an ms.Spectrum belonging to the scan number in argument
+var spectrum = func(rf *File, sn int) (s ms.Spectrum) {
+	//read Scan Packet for the scan
 	scn := new(ScanDataPacket)
 	readBetween(rf.f, rf.scanindex[sn-1].Offset, rf.scanindex[sn-1].Offset+uint64(rf.scanindex[sn-1].DataPacketSize), 0, scn)
 
-	return scan(scn, &rf.scanevents[sn-1], &rf.scanindex[sn-1])
-}
-
-/*
-  Converts the three Thermo scan data structures into a ms.Scan structure
-*/
-func scan(rawscan *ScanDataPacket, scanevent *ScanEvent,
-	sie *ScanIndexEntry) ms.Scan {
-
-	var scan ms.Scan
-
-	scan.Time = sie.Time
-	scan.MSLevel = scanevent.Preamble[6]
-	scan.Activation = ms.Activation(scanevent.Preamble[24])
-	scan.Analyzer = ms.Analyzer(scanevent.Preamble[40])
-
-	if rawscan.Profile.PeakCount > 0 {
+	if scn.Profile.PeakCount > 0 {
 		//convert Hz values into m/z and save the profile peaks
-		for i := uint32(0); i < rawscan.Profile.PeakCount; i++ {
-			for j := uint32(0); j < rawscan.Profile.Chunks[i].Nbins; j++ {
-				tmpmz := scanevent.Convert(rawscan.Profile.FirstValue+
-					float64(rawscan.Profile.Chunks[i].Firstbin+j)*rawscan.Profile.Step) +
-					float64(rawscan.Profile.Chunks[i].Fudge)
-				scan.Spectrum = append(scan.Spectrum,
-					ms.Peak{Mz: tmpmz, I: rawscan.Profile.Chunks[i].Signal[j]})
+		for i := uint32(0); i < scn.Profile.PeakCount; i++ {
+			for j := uint32(0); j < scn.Profile.Chunks[i].Nbins; j++ {
+				tmpmz := rf.scanevents[sn-1].Convert(scn.Profile.FirstValue+
+					float64(scn.Profile.Chunks[i].Firstbin+j)*scn.Profile.Step) +
+					float64(scn.Profile.Chunks[i].Fudge)
+				s = append(s,
+					ms.Peak{Mz: tmpmz, I: scn.Profile.Chunks[i].Signal[j]})
 			}
 		}
 	} else {
 		//Save the Centroided Peaks, they also occur in profile scans but
 		//overlap with profiles, Thermo always does centroiding just for fun
-		for i := uint32(0); i < rawscan.PeakList.Count; i++ {
-			scan.Spectrum = append(scan.Spectrum,
-				ms.Peak{Mz: float64(rawscan.PeakList.Peaks[i].Mz),
-					I: rawscan.PeakList.Peaks[i].Abundance})
+		for i := uint32(0); i < scn.PeakList.Count; i++ {
+			s = append(s,
+				ms.Peak{Mz: float64(scn.PeakList.Peaks[i].Mz),
+					I: scn.PeakList.Peaks[i].Abundance})
 		}
 	}
-
-	return scan
+	return
 }
 
 //interface shared by all data objects in the raw file
@@ -318,7 +315,7 @@ func (data *TrailerLength) Read(r io.Reader, v Version) {
 type ScanEvent struct {
 	Preamble [132]uint8 //128 bytes from v63 on, 120 in v62, 80 in v57, 41 below that
 	//Preamble[6] == ms-level
-	//Preamble[24] == activation
+	//Preamble[40] == analyzer
 	Nprecursors uint32
 
 	Reaction []Reaction
@@ -1025,18 +1022,18 @@ func (data *RawFileInfo) Read(r io.Reader, v Version) {
   It determines the reading strategy for some data structures that changed over time
 */
 type FileHeader struct { //1356 bytes
-	Magic       uint16    //2 bytes
-	Signature   signature //18 bytes
-	Unknown1    uint32    //4 bytes
-	Unknown2    uint32    //4 bytes
-	Unknown3    uint32    //4 bytes
-	Unknown4    uint32    //4 bytes
-	Version     Version   //4 bytes
-	AuditStart  AuditTag  //112 bytes
-	AuditEnd    AuditTag  //112 bytes
-	Unknown5    uint32    //4 bytes
-	Unknown6    [60]byte  //60 bytes
-	Tag         headertag //1028 bytes
+	Magic      uint16    //2 bytes
+	Signature  signature //18 bytes
+	Unknown1   uint32    //4 bytes
+	Unknown2   uint32    //4 bytes
+	Unknown3   uint32    //4 bytes
+	Unknown4   uint32    //4 bytes
+	Version    Version   //4 bytes
+	AuditStart AuditTag  //112 bytes
+	AuditEnd   AuditTag  //112 bytes
+	Unknown5   uint32    //4 bytes
+	Unknown6   [60]byte  //60 bytes
+	Tag        headertag //1028 bytes
 }
 
 type audittag [25]uint16
@@ -1094,7 +1091,7 @@ func binaryread(r io.Reader, data interface{}) {
 /*
   Experimental: read out chromatography data from a connected instrument
 */
-func (rf File) Chromatography(instr int) (cdata CDataPackets) {
+func (rf *File) Chromatography(instr int) (cdata CDataPackets) {
 	info, ver := readHeaders(rf.f)
 
 	if uint32(instr) > info.Preamble.NControllers-1 {

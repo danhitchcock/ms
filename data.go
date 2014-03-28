@@ -7,32 +7,23 @@ type Peak struct {
 	I  float32
 }
 
-//Spectrum is the collection of peaks
+//A Spectrum is a collection of peaks
 type Spectrum []Peak
 
 //Scan represents the peak acquisition event of the mass spectrometer
 type Scan struct {
-	Activation Activation
 	Analyzer Analyzer
-	MSLevel    uint8
-	Spectrum
-	Time float64
+	MSLevel  uint8
+	Spectrum func() Spectrum
+	//PrecursorMzs is only filled with mz values at MSx scans.
+	PrecursorMzs []float64
+	Time         float64
 }
 
-//Activation is a type that describes the activation type for fragmentation scans
-type Activation int
-
-const (
-	//HCD for Higher-energy collisional dissociation
-	HCD Activation = iota + 1
-	_
-	_
-	//CID stands for Collision induced dissociation
-	CID
-)
-
+//Analyzer is the mass analyzer
 type Analyzer int
 
+//The analyzer types are documented in literature
 const (
 	ITMS Analyzer = iota
 	TQMS
