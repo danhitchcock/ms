@@ -65,8 +65,8 @@ func init() {
 }
 
 /*
-  Actual execution, where XIC peaks get extracted out of each MS1 Scan
-  read by the unthermo library
+  Actual execution,
+  XIC peaks get extracted out of each MS1 Scan read by the unthermo library
 */
 func main() {
 	for _, filename := range flag.Args() {
@@ -74,7 +74,7 @@ func main() {
 		if err != nil {
 			log.Println(err)
 		}
-		//
+		
 		for i := 1; i <= file.NScans(); i++ {
 			printXICpeaks(file.Scan(i), mzs, tol)
 		}
@@ -83,21 +83,15 @@ func main() {
 	}
 }
 
-//XIC outputs the scan time and peaks of a MS1 scan within tolerance
-//around the supplied mzs
+//printXICpeaks outputs mz, scan time and intensity of MS1 peaks 
+//with mz within tolerance around the supplied mzs
 func printXICpeaks(scan ms.Scan, mzs []float64, tol float64) {
-	//if an MS1 Scan:
 	if scan.MSLevel == 1 {
 		spectrum := scan.Spectrum()
-		//for every mz in the argument list
 		for _, mz := range mzs {
-			//filter around the mz
 			filteredSpectrum := mzFilter(spectrum, mz, tol)
-			//If there is any data in this interval
 			if len(filteredSpectrum) > 0 {
-				//look for the maximal Peak
 				maxIn := maxPeak(filteredSpectrum)
-				//print it.
 				fmt.Println(mz, scan.Time, maxIn.I)
 			}
 		}
@@ -106,7 +100,6 @@ func printXICpeaks(scan ms.Scan, mzs []float64, tol float64) {
 
 //maxPeak returns the maximally intense peak within the supplied spectrum
 func maxPeak(spectrum ms.Spectrum) (maxIn ms.Peak) {
-	//find the peak with maximal intensity
 	for _, peak := range spectrum {
 		if peak.I >= maxIn.I {
 			maxIn = peak
@@ -117,8 +110,8 @@ func maxPeak(spectrum ms.Spectrum) (maxIn ms.Peak) {
 
 //mzFilter outputs the spectrum within tol ppm around the supplied mz
 func mzFilter(spectrum ms.Spectrum, mz float64, tol float64) ms.Spectrum {
-	//A spectrum is sorted by m/z so we can search for the two
-	//border peaks and get the range between them.
+	//A spectrum is sorted by m/z so we can do binary search for two
+	//endpoint peaks and get the range between them.
 	lowi := sort.Search(len(spectrum), func(i int) bool { return spectrum[i].Mz >= mz-10e-6*tol*mz })
 	highi := sort.Search(len(spectrum), func(i int) bool { return spectrum[i].Mz >= mz+10e-6*tol*mz })
 	
