@@ -78,7 +78,6 @@ func main() {
 
 		for i := 1; i <= file.NScans(); i++ {
 			XICpeaks(file.Scan(i), mzs, tol)
-
 		}
 
 		file.Close()
