@@ -40,7 +40,6 @@ type floatList []float64
 
 //mzs is the list of mz's for the XIC
 var mzs floatList
-
 //tol is the tolerance in ppm
 var tol float64
 
@@ -75,9 +74,9 @@ func main() {
 		if err != nil {
 			log.Println(err)
 		}
-
+		//
 		for i := 1; i <= file.NScans(); i++ {
-			XICpeaks(file.Scan(i), mzs, tol)
+			printXICpeaks(file.Scan(i), mzs, tol)
 		}
 
 		file.Close()
@@ -86,7 +85,7 @@ func main() {
 
 //XIC outputs the scan time and peaks of a MS1 scan within tolerance
 //around the supplied mzs
-func XICpeaks(scan ms.Scan, mzs []float64, tol float64) {
+func printXICpeaks(scan ms.Scan, mzs []float64, tol float64) {
 	//if an MS1 Scan:
 	if scan.MSLevel == 1 {
 		spectrum := scan.Spectrum()
@@ -116,12 +115,12 @@ func maxPeak(spectrum ms.Spectrum) (maxIn ms.Peak) {
 	return
 }
 
-//mzFilter outputs the spectrum within tolerance around the supplied mz
+//mzFilter outputs the spectrum within tol ppm around the supplied mz
 func mzFilter(spectrum ms.Spectrum, mz float64, tol float64) ms.Spectrum {
 	//A spectrum is sorted by m/z so we can search for the two
 	//border peaks and get the range between them.
 	lowi := sort.Search(len(spectrum), func(i int) bool { return spectrum[i].Mz >= mz-10e-6*tol*mz })
 	highi := sort.Search(len(spectrum), func(i int) bool { return spectrum[i].Mz >= mz+10e-6*tol*mz })
-	//If there is any data in this interval
+	
 	return spectrum[lowi:highi]
 }
