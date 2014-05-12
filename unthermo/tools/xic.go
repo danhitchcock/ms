@@ -27,6 +27,7 @@ import (
 	"bitbucket.org/proteinspector/ms/unthermo"
 	"flag"
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,16 +36,19 @@ import (
 /*
  * Argument parsing (multiple m/z require a lot of boilerplate)
  */
-type mzarg []float64
+type floatList []float64
 
-var mzs mzarg
+//mzs is the list of mz's for the XIC
+var mzs floatList
+
+//tol is the tolerance in ppm
 var tol float64
 
-func (i *mzarg) String() string {
+func (i *floatList) String() string {
 	return fmt.Sprintf("%d", *i)
 }
 
-func (i *mzarg) Set(value string) error {
+func (i *floatList) Set(value string) error {
 	for _, splv := range strings.Split(value, ",") {
 		tmp, err := strconv.ParseFloat(splv, 64)
 		if err != nil {
@@ -62,42 +66,63 @@ func init() {
 }
 
 /*
-  Actual execution
+  Actual execution, where XIC peaks get extracted out of each MS1 Scan
+  read by the unthermo library
 */
 func main() {
 	for _, filename := range flag.Args() {
-		//xic gets called on each MS1 Scan read by the unthermo library
-		file, _ := unthermo.Open(filename)
+		file, err := unthermo.Open(filename)
+		if err != nil {
+			log.Println(err)
+		}
 
-		file.AllScans(xic)
+		for i := 1; i <= file.NScans(); i++ {
+			XICpeaks(file.Scan(i), mzs, tol)
+
+		}
+
 		file.Close()
 	}
 }
 
-//Algorithm calculating and outputting the peaks belonging to the XIC's
-var xic = func(scan ms.Scan) {
+//XIC outputs the scan time and peaks of a MS1 scan within tolerance
+//around the supplied mzs
+func XICpeaks(scan ms.Scan, mzs []float64, tol float64) {
 	//if an MS1 Scan:
 	if scan.MSLevel == 1 {
+		spectrum := scan.Spectrum()
 		//for every mz in the argument list
 		for _, mz := range mzs {
-			//look for the peaks within tolerance.
-			//The spectrum is sorted by m/z so we can search for the two
-			//border peaks and get the range between them.
-			spectrum := scan.Spectrum()
-			lowi := sort.Search(len(spectrum), func(i int) bool { return spectrum[i].Mz >= mz-10e-6*tol*mz })
-			highi := sort.Search(len(spectrum), func(i int) bool { return spectrum[i].Mz >= mz+10e-6*tol*mz })
+			//filter around the mz
+			filteredSpectrum := mzFilter(spectrum, mz, tol)
 			//If there is any data in this interval
-			if highi > lowi {
-				//find the peak with maximal intensity
-				var maxIn ms.Peak
-				for _, peak := range spectrum[lowi:highi] {
-					if peak.I >= maxIn.I {
-						maxIn = peak
-					}
-				}
-				//and print it.
+			if len(filteredSpectrum) > 0 {
+				//look for the maximal Peak
+				maxIn := maxPeak(filteredSpectrum)
+				//print it.
 				fmt.Println(mz, scan.Time, maxIn.I)
 			}
 		}
 	}
+}
+
+//maxPeak returns the maximally intense peak within the supplied spectrum
+func maxPeak(spectrum ms.Spectrum) (maxIn ms.Peak) {
+	//find the peak with maximal intensity
+	for _, peak := range spectrum {
+		if peak.I >= maxIn.I {
+			maxIn = peak
+		}
+	}
+	return
+}
+
+//mzFilter outputs the spectrum within tolerance around the supplied mz
+func mzFilter(spectrum ms.Spectrum, mz float64, tol float64) ms.Spectrum {
+	//A spectrum is sorted by m/z so we can search for the two
+	//border peaks and get the range between them.
+	lowi := sort.Search(len(spectrum), func(i int) bool { return spectrum[i].Mz >= mz-10e-6*tol*mz })
+	highi := sort.Search(len(spectrum), func(i int) bool { return spectrum[i].Mz >= mz+10e-6*tol*mz })
+	//If there is any data in this interval
+	return spectrum[lowi:highi]
 }
