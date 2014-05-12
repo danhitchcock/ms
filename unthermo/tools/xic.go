@@ -84,15 +84,15 @@ func main() {
 }
 
 //printXICpeaks outputs mz, scan time and intensity of MS1 peaks 
-//with mz within tolerance around the supplied mzs
+//with mz within tolerance around the supplied mzs.
+//ie. the peaks that belong to a XIC
 func printXICpeaks(scan ms.Scan, mzs []float64, tol float64) {
 	if scan.MSLevel == 1 {
 		spectrum := scan.Spectrum()
 		for _, mz := range mzs {
 			filteredSpectrum := mzFilter(spectrum, mz, tol)
 			if len(filteredSpectrum) > 0 {
-				maxIn := maxPeak(filteredSpectrum)
-				fmt.Println(mz, scan.Time, maxIn.I)
+				fmt.Println(mz, scan.Time, maxPeak(filteredSpectrum).I)
 			}
 		}
 	}
@@ -113,7 +113,7 @@ func mzFilter(spectrum ms.Spectrum, mz float64, tol float64) ms.Spectrum {
 	//A spectrum is sorted by m/z so we can do binary search for two
 	//endpoint peaks and get the range between them.
 	lowi := sort.Search(len(spectrum), func(i int) bool { return spectrum[i].Mz >= mz-10e-6*tol*mz })
-	highi := sort.Search(len(spectrum), func(i int) bool { return spectrum[i].Mz >= mz+10e-6*tol*mz })
+	highi := sort.Search(len(spectrum) - lowi, func(i int) bool { return spectrum[i + lowi].Mz >= mz+10e-6*tol*mz })
 	
-	return spectrum[lowi:highi]
+	return spectrum[lowi:highi + lowi]
 }
