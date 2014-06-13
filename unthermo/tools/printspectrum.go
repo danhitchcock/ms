@@ -9,22 +9,27 @@ import (
 	"bitbucket.org/proteinspector/ms"
 	"bitbucket.org/proteinspector/ms/unthermo"
 	"fmt"
-	"os"
-	"strconv"
+	"log"
+	"flag"
 )
+
+var scannumber int
+var filename string
 
 func main() {
 	//Parse arguments
-	scannumber, _ := strconv.Atoi(os.Args[1])
-	filename := os.Args[2]
+	flag.IntVar(&scannumber, "sn", 1, "the scan number")
+	flag.StringVar(&filename, "raw", "small.RAW", "name of the RAW file")
 
 	//open RAW file
-	rf, _ := unthermo.Open(filename)
+	file, err := unthermo.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
 
 	//Print the Spectrum at the supplied scan number
-	printspectrum(rf.Scan(scannumber))
-
-	rf.Close()
+	printspectrum(file.Scan(scannumber))
 }
 
 //Print m/z and Intensity of every peak in the spectrum
