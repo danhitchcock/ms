@@ -17,9 +17,9 @@ import (
 var reporter_ions = [...]float64 { 316.1200, 581.883 }
 const tol = 2.5 //ppm
 var emptyPeak = ms.Peak{0, 0}
-var filename string
 
 func main() {
+	var filename string
 	//Parse arguments
 	flag.StringVar(&filename, "raw", "small.RAW", "name of the RAW file")
 	flag.Parse()
