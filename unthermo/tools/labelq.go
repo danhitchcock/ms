@@ -56,14 +56,16 @@ func printExtendedCIDScans(filename string, file unthermo.File) {
 			for precursor, nScan := range cidScans {
 				cidSpectrum := nScan.Spectrum()
 				mergeSpectra(cidSpectrum, hcdPeakSpectra[precursor])
+				
 				printMGF(filename, nScan, cidSpectrum)
+				
 				delete(cidScans, precursor)
 				delete(hcdPeakSpectra, precursor)
 			}
 		case 2:
 			switch scan.Analyzer {
 			case ms.FTMS:
-				hcdPeakSpectra[scan.PrecursorMzs[0]] = reporterIons(scan.Spectrum())
+				hcdPeakSpectra[scan.PrecursorMzs[0]] = reporterPeaks(scan.Spectrum())
 			case ms.ITMS:
 				cidScans[scan.PrecursorMzs[0]] = numberedScan{scan, i}
 			}
@@ -73,7 +75,7 @@ func printExtendedCIDScans(filename string, file unthermo.File) {
 
 //getReporterIons returns a Spectrum with the peaks found at
 //reporter_ions m/z's
-func reporterIons(spectrum ms.Spectrum) ms.Spectrum {
+func reporterPeaks(spectrum ms.Spectrum) ms.Spectrum {
 	var peaks ms.Spectrum
 
 	for _, mz := range reporter_ions {
