@@ -8,13 +8,13 @@ package main
 import (
 	"bitbucket.org/proteinspector/ms"
 	"bitbucket.org/proteinspector/ms/unthermo"
+	"flag"
 	"fmt"
 	"log"
-	"flag"
 	"sort"
 )
 
-var reporter_ions = [...]float64 { 316.1200, 581.883 }
+var reporter_ions = [...]float64{316.1200, 581.883}
 
 const tol = 2.5 //tolerance in ppm
 var emptyPeak = ms.Peak{0, 0}
@@ -41,39 +41,39 @@ type numberedScan struct {
 	Number int
 }
 
-//printExtendedCIDScans merges reporter_ions peaks from HCD scans into 
+//printExtendedCIDScans merges reporter_ions peaks from HCD scans into
 //the corresponding CID scans, then prints these merged spectra in MGF format
 //@pre The MS2 scans have one precursor
 //@pre There are an equal amount of HCD and CID scans
 func printExtendedCIDScans(filename string, file unthermo.File) {
 	cidScans := make(map[float64]numberedScan)
 	hcdPeakSpectra := make(map[float64]ms.Spectrum)
-	
+
 	for i := 1; i <= file.NScans(); i++ {
 		scan := file.Scan(i)
 		switch scan.MSLevel {
-			case 1:
-				for precursor, nScan := range cidScans {
-					cidSpectrum := nScan.Spectrum()
-					mergeSpectra(cidSpectrum, hcdPeakSpectra[precursor])
-					printMGF(filename, nScan, cidSpectrum)
-					delete(cidScans, precursor)
-					delete(hcdPeakSpectra, precursor)
-				}
-			case 2:
-				switch scan.Analyzer {
-					case ms.FTMS:
-						hcdPeakSpectra[scan.PrecursorMzs[0]] = getReporterIons(scan.Spectrum())
-					case ms.ITMS:
-						cidScans[scan.PrecursorMzs[0]] = numberedScan{scan, i}
-				}
+		case 1:
+			for precursor, nScan := range cidScans {
+				cidSpectrum := nScan.Spectrum()
+				mergeSpectra(cidSpectrum, hcdPeakSpectra[precursor])
+				printMGF(filename, nScan, cidSpectrum)
+				delete(cidScans, precursor)
+				delete(hcdPeakSpectra, precursor)
+			}
+		case 2:
+			switch scan.Analyzer {
+			case ms.FTMS:
+				hcdPeakSpectra[scan.PrecursorMzs[0]] = reporterIons(scan.Spectrum())
+			case ms.ITMS:
+				cidScans[scan.PrecursorMzs[0]] = numberedScan{scan, i}
+			}
 		}
 	}
 }
 
 //getReporterIons returns a Spectrum with the peaks found at
 //reporter_ions m/z's
-func getReporterIons(spectrum ms.Spectrum) ms.Spectrum {
+func reporterIons(spectrum ms.Spectrum) ms.Spectrum {
 	var peaks ms.Spectrum
 
 	for _, mz := range reporter_ions {
@@ -84,6 +84,7 @@ func getReporterIons(spectrum ms.Spectrum) ms.Spectrum {
 	}
 	return peaks
 }
+
 //mergeSpectra merges the right spectrum into the left
 func mergeSpectra(left ms.Spectrum, right ms.Spectrum) {
 	left = append(left, right...)
@@ -97,7 +98,7 @@ func printMGF(filename string, nScan numberedScan, spectrum ms.Spectrum) {
 		fmt.Printf("TITLE=%s_scan=%d\n", filename, nScan.Number)
 		fmt.Printf("RTINSECONDS=%v\n", nScan.Time)
 		fmt.Printf("PEPMASS=%v_1\n", nScan.PrecursorMzs[0]) //TODO: find real precursor intensity
-		fmt.Println("CHARGE=2+ and 3+ and 4+") //TODO: find real precursor charge
+		fmt.Println("CHARGE=2+ and 3+ and 4+")              //TODO: find real precursor charge
 		for _, peak := range spectrum {
 			fmt.Println(peak.Mz, peak.I)
 		}
@@ -107,12 +108,12 @@ func printMGF(filename string, nScan numberedScan, spectrum ms.Spectrum) {
 
 //highestPeakAround returns the highest MS1 peak with mz within tolerance around the supplied mz.
 func highestPeakAround(spectrum ms.Spectrum, mz float64, tol float64) (peak ms.Peak) {
-		filteredSpectrum := mzFilter(spectrum, mz, tol)
-		if len(filteredSpectrum) > 0 {
-			return maxPeak(filteredSpectrum)
-		} else {
-			return peak
-		}
+	filteredSpectrum := mzFilter(spectrum, mz, tol)
+	if len(filteredSpectrum) > 0 {
+		return maxPeak(filteredSpectrum)
+	} else {
+		return peak
+	}
 }
 
 //mzFilter outputs the spectrum within tol ppm around the supplied mz
