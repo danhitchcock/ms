@@ -15,6 +15,7 @@ import (
 )
 
 var reporter_ions = [...]float64{316.1200, 581.883}
+
 const tol = 2.5 //tolerance in ppm
 
 func main() {
@@ -54,9 +55,9 @@ func printExtendedCIDScans(filename string, file unthermo.File) {
 			for precursor, nScan := range cidScans {
 				cidSpectrum := nScan.Spectrum()
 				mergeSpectra(cidSpectrum, hcdPeakSpectra[precursor])
-				
+
 				printMGF(filename, nScan, cidSpectrum)
-				
+
 				delete(cidScans, precursor)
 				delete(hcdPeakSpectra, precursor)
 			}
@@ -100,10 +101,10 @@ func reporterPeaks(spectrum ms.Spectrum) ms.Spectrum {
 	for _, mz := range reporter_ions {
 		filteredSpectrum := mzFilter(spectrum, mz, tol)
 		if len(filteredSpectrum) > 0 {
-			append(peaks, maxPeak(filteredSpectrum))
+			peaks = append(peaks, maxPeak(filteredSpectrum))
 		}
 	}
-	
+
 	return peaks
 }
 
