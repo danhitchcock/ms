@@ -31,14 +31,18 @@ func main() {
 	}
 	defer file.Close()
 
-	printExtendedCIDScans(file)
+	printExtendedCIDScans(filename, file)
 
 }
 
+type numberedScan struct {
+	ms.Scan
+	Number int
+}
 
 //@pre The MS2 scans have one precursor
-func printExtendedCIDScans(file unthermo.File) {
-	cidSpectra := make(map[float64]ms.Spectrum)
+func printExtendedCIDScans(filename string, file unthermo.File) {
+	cidScans := make(map[float64]numberedScan)
 	hcdPeakSpectra := make(map[float64]ms.Spectrum)
 	var msTwoHappened bool = false
 	
@@ -47,16 +51,19 @@ func printExtendedCIDScans(file unthermo.File) {
 		switch scan.MSLevel {
 			case 1:
 				if msTwoHappened {
-					if len(cidSpectra) != len(hcdPeakSpectra) {
+					if len(cidScans) != len(hcdPeakSpectra) {
 						log.Println("unmatched spectra right before scan", i)
 						break
 					}
 					
 					for precursor := range hcdPeakSpectra {
-						mergeAndPrint(cidSpectra[precursor], hcdPeakSpectra[precursor])
+						nScan := cidScans[precursor]
+						cidSpectrum := nScan.Spectrum()
+						mergeSpectra(cidSpectrum, hcdPeakSpectra[precursor])
+						printMGF(filename, nScan, cidSpectrum)
 					}
 					
-					cidSpectra = make(map[float64]ms.Spectrum)
+					cidScans = make(map[float64]numberedScan)
 					hcdPeakSpectra = make(map[float64]ms.Spectrum)
 					msTwoHappened = false
 				}
@@ -68,7 +75,7 @@ func printExtendedCIDScans(file unthermo.File) {
 						var hcdPeaks ms.Spectrum
 						
 						for _, mz := range reporter_ions {
-							peak := peak(spectrum, mz, tol)
+							peak := highestPeakAround(spectrum, mz, tol)
 							if peak != emptyPeak {
 								hcdPeaks = append(hcdPeaks, peak)
 							}
@@ -76,27 +83,35 @@ func printExtendedCIDScans(file unthermo.File) {
 						
 						hcdPeakSpectra[scan.PrecursorMzs[0]] = hcdPeaks
 					case ms.ITMS:
-						cidSpectra[scan.PrecursorMzs[0]] = scan.Spectrum()
+						cidScans[scan.PrecursorMzs[0]] = numberedScan{scan, i}
 				}
 		}
 	}
 }
 
-func mergeAndPrint(left ms.Spectrum, right ms.Spectrum) {
+//mergeSpectra merges the right spectrum into the left
+func mergeSpectra(left ms.Spectrum, right ms.Spectrum) {
 	left = append(left, right...)
 	sort.Sort(left)
-    printMGFSpectrum(left)
 }
 
-//Print m/z and Intensity of every peak in the spectrum
-func printMGFSpectrum(spectrum ms.Spectrum) {
-	for _, peak := range spectrum {
-		fmt.Println(peak.Mz, peak.I)
+//printMGF prints the numbered scan with spectrum in MGF format
+func printMGF(filename string, nScan numberedScan, spectrum ms.Spectrum) {
+	if nScan.MSLevel == 2 {
+		fmt.Println("BEGIN IONS")
+		fmt.Printf("TITLE=%s_scan=%d\n", filename, nScan.Number)
+		fmt.Printf("RTINSECONDS=%v\n", nScan.Time)
+		fmt.Printf("PEPMASS=%v_1\n", nScan.PrecursorMzs[0]) //TODO: find real precursor intensity
+		fmt.Println("CHARGE=2+ and 3+ and 4+") //TODO: find real precursor charge
+		for _, peak := range spectrum {
+			fmt.Println(peak.Mz, peak.I)
+		}
+		fmt.Println("END IONS")
 	}
 }
 
 //the highest MS1 peak with mz within tolerance around the supplied mz.
-func peak(spectrum ms.Spectrum, mz float64, tol float64) (peak ms.Peak) {
+func highestPeakAround(spectrum ms.Spectrum, mz float64, tol float64) (peak ms.Peak) {
 		filteredSpectrum := mzFilter(spectrum, mz, tol)
 		if len(filteredSpectrum) > 0 {
 			return maxPeak(filteredSpectrum)
