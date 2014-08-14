@@ -15,9 +15,7 @@ import (
 )
 
 var reporter_ions = [...]float64{316.1200, 581.883}
-
 const tol = 2.5 //tolerance in ppm
-var emptyPeak = ms.Peak{0, 0}
 
 func main() {
 	var filename string
@@ -73,20 +71,6 @@ func printExtendedCIDScans(filename string, file unthermo.File) {
 	}
 }
 
-//getReporterIons returns a Spectrum with the peaks found at
-//reporter_ions m/z's
-func reporterPeaks(spectrum ms.Spectrum) ms.Spectrum {
-	var peaks ms.Spectrum
-
-	for _, mz := range reporter_ions {
-		peak := highestPeakAround(spectrum, mz, tol)
-		if peak != emptyPeak {
-			peaks = append(peaks, peak)
-		}
-	}
-	return peaks
-}
-
 //mergeSpectra merges the right spectrum into the left
 func mergeSpectra(left ms.Spectrum, right ms.Spectrum) {
 	left = append(left, right...)
@@ -108,14 +92,19 @@ func printMGF(filename string, nScan numberedScan, spectrum ms.Spectrum) {
 	}
 }
 
-//highestPeakAround returns the highest MS1 peak with mz within tolerance around the supplied mz.
-func highestPeakAround(spectrum ms.Spectrum, mz float64, tol float64) (peak ms.Peak) {
-	filteredSpectrum := mzFilter(spectrum, mz, tol)
-	if len(filteredSpectrum) > 0 {
-		return maxPeak(filteredSpectrum)
-	} else {
-		return peak
+//getReporterIons returns a Spectrum with the peaks found at
+//reporter_ions m/z's, i.e. the highest MS1 peaks within tolerance around the m/z.
+func reporterPeaks(spectrum ms.Spectrum) ms.Spectrum {
+	var peaks ms.Spectrum
+
+	for _, mz := range reporter_ions {
+		filteredSpectrum := mzFilter(spectrum, mz, tol)
+		if len(filteredSpectrum) > 0 {
+			append(peaks, maxPeak(filteredSpectrum))
+		}
 	}
+	
+	return peaks
 }
 
 //mzFilter outputs the spectrum within tol ppm around the supplied mz
