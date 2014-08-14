@@ -15,7 +15,8 @@ import (
 )
 
 var reporter_ions = [...]float64 { 316.1200, 581.883 }
-const tol = 2.5 //ppm
+
+const tol = 2.5 //tolerance in ppm
 var emptyPeak = ms.Peak{0, 0}
 
 func main() {
@@ -43,21 +44,16 @@ type numberedScan struct {
 //printExtendedCIDScans merges reporter_ions peaks from HCD scans into 
 //the corresponding CID scans, then prints these merged spectra in MGF format
 //@pre The MS2 scans have one precursor
+//@pre There are an equal amount of HCD and CID scans
 func printExtendedCIDScans(filename string, file unthermo.File) {
 	cidScans := make(map[float64]numberedScan)
 	hcdPeakSpectra := make(map[float64]ms.Spectrum)
-	var msTwoHappened bool = false
 	
 	for i := 1; i <= file.NScans(); i++ {
 		scan := file.Scan(i)
 		switch scan.MSLevel {
 			case 1:
-				if msTwoHappened {
-					if len(cidScans) != len(hcdPeakSpectra) {
-						log.Println("unmatched spectra right before scan", i)
-						break
-					}
-					
+				if len(cidScans) != 0 {
 					for precursor := range hcdPeakSpectra {
 						nScan := cidScans[precursor]
 						cidSpectrum := nScan.Spectrum()
@@ -67,10 +63,8 @@ func printExtendedCIDScans(filename string, file unthermo.File) {
 					
 					cidScans = make(map[float64]numberedScan)
 					hcdPeakSpectra = make(map[float64]ms.Spectrum)
-					msTwoHappened = false
 				}
 			case 2:
-				msTwoHappened = true
 				switch scan.Analyzer {
 					case ms.FTMS:
 						spectrum := scan.Spectrum()
