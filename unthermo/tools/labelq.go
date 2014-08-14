@@ -40,6 +40,8 @@ type numberedScan struct {
 	Number int
 }
 
+//printExtendedCIDScans merges reporter_ions peaks from HCD scans into 
+//the corresponding CID scans, then prints these merged spectra in MGF format
 //@pre The MS2 scans have one precursor
 func printExtendedCIDScans(filename string, file unthermo.File) {
 	cidScans := make(map[float64]numberedScan)
@@ -110,7 +112,7 @@ func printMGF(filename string, nScan numberedScan, spectrum ms.Spectrum) {
 	}
 }
 
-//the highest MS1 peak with mz within tolerance around the supplied mz.
+//highestPeakAround returns the highest MS1 peak with mz within tolerance around the supplied mz.
 func highestPeakAround(spectrum ms.Spectrum, mz float64, tol float64) (peak ms.Peak) {
 		filteredSpectrum := mzFilter(spectrum, mz, tol)
 		if len(filteredSpectrum) > 0 {
