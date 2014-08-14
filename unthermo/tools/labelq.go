@@ -54,8 +54,7 @@ func printExtendedCIDScans(filename string, file unthermo.File) {
 		switch scan.MSLevel {
 			case 1:
 				if len(cidScans) != 0 {
-					for precursor := range hcdPeakSpectra {
-						nScan := cidScans[precursor]
+					for precursor, nScan := range cidScans {
 						cidSpectrum := nScan.Spectrum()
 						mergeSpectra(cidSpectrum, hcdPeakSpectra[precursor])
 						printMGF(filename, nScan, cidSpectrum)
