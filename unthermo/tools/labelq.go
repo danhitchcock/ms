@@ -1,8 +1,6 @@
-//The printspectrum tool prints out the spectrum (mz and intensity values) of a
-//Thermo RAW File
+//The labelq tool inserts iTRAQ reporter ions from HCD scans in CID spectra. 
 //
-//  Every line of the output is a peak registered by the mass spectrometer
-//  characterized by an m/z value in Da and an intensity in the mass spectrometer's unit of abundance
+//  Program output is MGF formatted MS2 spectra
 package main
 
 import (
