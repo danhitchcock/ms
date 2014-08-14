@@ -20,7 +20,8 @@ func main() {
 	//Parse arguments
 	flag.IntVar(&scannumber, "sn", 1, "the scan number")
 	flag.StringVar(&filename, "raw", "small.RAW", "name of the RAW file")
-
+	flag.Parse()
+	
 	//open RAW file
 	file, err := unthermo.Open(filename)
 	if err != nil {
