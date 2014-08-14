@@ -5,7 +5,7 @@ a successor to [unfinnigan](http://code.google.com/p/unfinnigan/wiki/FileLayoutO
 
 ## Usable tools:
 
-*   XIC, prints mass chromatograms for given m/z's.
+*   XIC, prints the mass chromatogram for a given m/z.
 
     [linux amd64 executable](https://bitbucket.org/proteinspector/ms/downloads/xic)
   
