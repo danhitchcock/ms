@@ -14,7 +14,7 @@ import (
 	"sort"
 )
 
-var reporter_ions = [...]float64{316.1200, 581.883}
+var reporter_ions = [...]float64{114.1112, 115.1083, 116.1116, 117.1150}
 
 const tol = 2.5 //tolerance in ppm
 
