@@ -28,6 +28,7 @@ type File struct {
 func Open(fn string) (file File, err error) {
 	f, err := os.Open(fn)
 	if err != nil {
+		log.Println(err)
 		return
 	}
 
