@@ -30,8 +30,7 @@ import (
 
 //ions are the m/z for the XIC
 //var ions = []float64{495.78700, 424.25560, 507.81340, 461.74760, 740.40170, 820.47250, 682.34770} //BSA
-//Enolase: 
-var ions = []float64{363.67450, 362.22910, 367.21590, 550.76660, 643.85824, 878.47842, 789.90439}
+var ions = []float64{363.67450, 362.22910, 367.21590, 550.76660, 643.85824, 878.47842, 789.90439} //Enolase
 //tol is the tolerance in ppm
 var tol float64 = 2.5
 
@@ -41,7 +40,10 @@ type TimedPeak struct {
 }
 
 /*
-  
+  The peakstats tool outputs a few data about the peaks of supplied ions:
+  - Mass, Time and Intensity of maximum peak in LC/MS map
+  - Full Width Half Max of this peak
+  - Optionally: an interpolation of the peak data itself (for graphing)
 */
 func main() {
 	var fileName string
