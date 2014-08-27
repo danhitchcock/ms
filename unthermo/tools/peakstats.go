@@ -1,19 +1,8 @@
-/*The XIC tool prints mass chromatograms for a specific m/z.
-
-  For the m/z given, it prints the peak with highest intensity in interval
-  [mz-tol ppm,mz+tol ppm] for every MS-1 scan.
-
-  Every line contains the retention time and intensity of a peak
-
-  Example:
-      xic -mz 361.1466 -tol 2.5 -raw rawfile.raw
-
-  Output:
-      361.1466 0.003496666666666667 10500.583
-      361.1466 0.015028333333333333 11793.04
-      361.1466 0.03391333333333333 10178.598
-      361.1466 0.05393333333333334 10671.821
-      361.1466 0.07350833333333334 11572.251
+/*
+  The peakstats tool outputs a few data about the peaks of supplied ions:
+  - Mass, Time and Intensity of maximum peak in LC/MS map
+  - Full Width Half Max of this peak
+  - Optionally: an interpolation of the peak data itself (for graphing)
 */
 package main
 
@@ -39,12 +28,7 @@ type TimedPeak struct {
 	Time float64 
 }
 
-/*
-  The peakstats tool outputs a few data about the peaks of supplied ions:
-  - Mass, Time and Intensity of maximum peak in LC/MS map
-  - Full Width Half Max of this peak
-  - Optionally: an interpolation of the peak data itself (for graphing)
-*/
+
 func main() {
 	var fileName string
 	flag.StringVar(&fileName, "raw", "small.RAW", "name of the subject RAW file")
