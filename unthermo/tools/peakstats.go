@@ -1,5 +1,4 @@
-/*
-  The peakstats tool outputs a few data about the peaks of supplied ions:
+/*The peakstats tool outputs a few data about the peaks of supplied ions:
   - Mass, Time and Intensity of maximum peak in LC/MS map
   - Full Width Half Max of this peak
   - Optionally: an interpolation of the peak data itself (for graphing)
