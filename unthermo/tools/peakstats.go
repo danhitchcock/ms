@@ -1,7 +1,6 @@
 /*The peakstats tool outputs a few data about the peaks of supplied ions:
-  - Mass, Time and Intensity of maximum peak in LC/MS map
-  - Full Width Half Max of this peak
-  - Optionally: an interpolation of the peak data itself (for graphing)
+  - Mass, Time at Maximum, Maximal intensity of ions found in the LC/MS map
+  - Full width at half maximum of this maximal peak
 */
 package main
 
@@ -10,113 +9,63 @@ import (
 	"bitbucket.org/proteinspector/ms/unthermo"
 	"flag"
 	"fmt"
-	"log"
 	"github.com/pkelchte/spline"
+	"log"
 	"sort"
 )
 
-
-//ions are the m/z for the XIC
-//var ions = []float64{495.78700, 424.25560, 507.81340, 461.74760, 740.40170, 820.47250, 682.34770} //BSA
-var ions = []float64{363.67450, 362.22910, 367.21590, 550.76660, 643.85824, 878.47842, 789.90439} //Enolase
-//tol is the tolerance in ppm
-var tol float64 = 2.5
+//tol is the tolerance (in ppm) for m/z peaks
+const tol = 2.5
 
 type TimedPeak struct {
 	ms.Peak
-	Time float64 
+	Time float64
 }
 
-
 func main() {
+	//ions are the m/z that will be searched in the spectra
+	//var ions = []float64{495.78700, 424.25560, 507.81340, 461.74760, 740.40170, 820.47250, 682.34770} //BSA
+	var ions = []float64{363.67450, 362.22910, 367.21590, 550.76660, 643.85824, 878.47842, 789.90439} //Enolase
+
 	var fileName string
 	flag.StringVar(&fileName, "raw", "small.RAW", "name of the subject RAW file")
 	flag.Parse()
-	
+
 	file, err := unthermo.Open(fileName)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer file.Close()
 
-	xicmap := xics(file)
-	resolution := guessMsOneInterval(file)
-	
+	xicmap := xics(file, ions)
+	timeresolution := guessMsOneInterval(file)
+
+	//loop over found ions in order
+	var keys []float64
 	for k := range xicmap {
-		fmt.Println(k, fwhm(xicmap[k], resolution))
+		keys = append(keys, k)
+	}
+	sort.Float64s(keys)
+
+	for _, mz := range keys {
+		maxPeak, fwhm := maxChromFeature(xicmap[mz], timeresolution)
+		fmt.Println(mz, maxPeak.Time, maxPeak.I, fwhm)
 	}
 }
 
-//guessMsOneInterval returns a guess for the interval between ms1 scans
-func guessMsOneInterval(file unthermo.File) float64 {
-	var timeOne float64 = 0
-	var i int = 1
-	for ; timeOne == 0; i++ {
-		scan := file.Scan(i)
-		if scan.MSLevel == 1 {
-			timeOne = scan.Time
-		}
-	}
-	timeTwo := timeOne
-	for ; timeTwo == timeOne; i++ {
-		scan := file.Scan(i)
-		if scan.MSLevel == 1 {
-			timeTwo = scan.Time
-		}
-	}
-	return timeTwo - timeOne
-}
-
-func fwhm(xic []TimedPeak, resolution float64) float64 {
-	
-	s := spline.Spline{}
-
-	X := make([]float64, len(xic))
-	Y := make([]float64, len(xic))
-	for i:= range xic {
-		X[i] = xic[i].Time
-		Y[i] = float64(xic[i].I)
-	}
-
-	s.Set_points(X, Y, true)
-	
-	var max TimedPeak
-	
-	for _, peak := range xic {
-		if peak.I >= max.I {
-			max = peak
-		}
-	}
-	
-	right := max.Time
-	for ; s.Operate(right)>float64(max.I/2); right += resolution {} //increase with seconds
-	left := max.Time
-	for ; s.Operate(left)>float64(max.I/2); left-=resolution {}
-	
-	//for i := -13; i< 44; i++ {
-		//x := 0.01 * float64(i)
-		//fmt.Printf("%f %f\n", x, s.Operate(x))
-	//}
-	
-	return right - left
-}
-
-//xics returns a map of slices of extracted ion chromatgrams
-func xics(file unthermo.File) map[float64][]TimedPeak {
-	sort.Float64s(ions)
-	
+//xics returns a map of slices of extracted ion chromatograms
+func xics(file unthermo.File, ions []float64) map[float64][]TimedPeak {
 	xicmap := make(map[float64][]TimedPeak, len(ions))
-		
+
 	for i := 1; i <= file.NScans(); i++ {
 		scan := file.Scan(i)
-	
+
 		if scan.MSLevel == 1 {
 			spectrum := scan.Spectrum()
-			
 			for _, ion := range ions {
 				filteredSpectrum := mzFilter(spectrum, ion, tol)
 				if len(filteredSpectrum) > 0 {
-					xicmap[ion] = append(xicmap[ion],TimedPeak{maxPeak(filteredSpectrum), scan.Time})
+					xicmap[ion] = append(xicmap[ion], TimedPeak{maxPeak(filteredSpectrum), scan.Time})
 				}
 			}
 		}
@@ -148,4 +97,58 @@ func maxPeak(spectrum ms.Spectrum) (maxIn ms.Peak) {
 		}
 	}
 	return
+}
+
+//guessMsOneInterval returns a guess for the interval between MS1 scans.
+//Usually, aqcuisitions start with a few MS1 scans after each other,
+//the minimum time between MS1 scans is then the time between the first two
+func guessMsOneInterval(file unthermo.File) float64 {
+	var timeOne float64 = 0
+	var i int = 1
+	for ; timeOne == 0; i++ {
+		scan := file.Scan(i)
+		if scan.MSLevel == 1 {
+			timeOne = scan.Time
+		}
+	}
+	timeTwo := timeOne
+	for ; timeTwo == timeOne; i++ {
+		scan := file.Scan(i)
+		if scan.MSLevel == 1 {
+			timeTwo = scan.Time
+		}
+	}
+	return timeTwo - timeOne
+}
+
+//maxChromFeature outputs the maximal peak in an ion chromatogram, along
+//with the full-width half max.
+//The resolution is the time step size when searching for the half max
+func maxChromFeature(xic []TimedPeak, resolution float64) (max TimedPeak, fwhm float64) {
+	//create spline for having a mathematical function when searching for the fwhm
+	s := spline.Spline{}
+	X := make([]float64, len(xic))
+	Y := make([]float64, len(xic))
+	for i := range xic {
+		X[i] = xic[i].Time
+		Y[i] = float64(xic[i].I)
+	}
+	s.Set_points(X, Y, true)
+
+	//look for the maximum peak in the xic
+	for _, peak := range xic {
+		if peak.I >= max.I {
+			max = peak
+		}
+	}
+
+	//find the time points when the xic goes below half the maximum
+	right := max.Time
+	for ; s.Operate(right) > float64(max.I/2); right += resolution {
+	}
+	left := max.Time
+	for ; s.Operate(left) > float64(max.I/2); left -= resolution {
+	}
+
+	return max, right - left
 }
