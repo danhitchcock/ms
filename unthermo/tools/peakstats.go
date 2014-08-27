@@ -38,7 +38,7 @@ func main() {
 	defer file.Close()
 
 	xicmap := xics(file, ions)
-	timeresolution := guessMsOneInterval(file)
+	timeresolution := guessMsOneInterval(file) / 10
 
 	//loop over found ions in order
 	var keys []float64
@@ -125,7 +125,16 @@ func guessMsOneInterval(file unthermo.File) float64 {
 //with the full-width half max.
 //The resolution is the time step size when searching for the half max
 func maxChromFeature(xic []TimedPeak, resolution float64) (max TimedPeak, fwhm float64) {
-	//create spline for having a mathematical function when searching for the fwhm
+	//look for the maximum peak in the xic
+	for _, peak := range xic {
+		if peak.I >= max.I {
+			max = peak
+		}
+	}
+
+	//create spline for having a mathematical function when searching for the fwhm.
+	//it covers the whole xic for code conciseness, there is not much speed
+	//gain when only a region around max is interpolated.
 	s := spline.Spline{}
 	X := make([]float64, len(xic))
 	Y := make([]float64, len(xic))
@@ -134,13 +143,6 @@ func maxChromFeature(xic []TimedPeak, resolution float64) (max TimedPeak, fwhm f
 		Y[i] = float64(xic[i].I)
 	}
 	s.Set_points(X, Y, true)
-
-	//look for the maximum peak in the xic
-	for _, peak := range xic {
-		if peak.I >= max.I {
-			max = peak
-		}
-	}
 
 	//find the time points when the xic goes below half the maximum
 	right := max.Time
