@@ -8,20 +8,20 @@ package main
 import (
 	"bitbucket.org/proteinspector/ms"
 	"bitbucket.org/proteinspector/ms/unthermo"
+	"flag"
 	"fmt"
 	"log"
-	"flag"
 )
 
-var scannumber int
-var filename string
-
 func main() {
+	var scannumber int
+	var filename string
+
 	//Parse arguments
 	flag.IntVar(&scannumber, "sn", 1, "the scan number")
 	flag.StringVar(&filename, "raw", "small.RAW", "name of the RAW file")
 	flag.Parse()
-	
+
 	//open RAW file
 	file, err := unthermo.Open(filename)
 	if err != nil {
