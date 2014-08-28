@@ -3,17 +3,17 @@
   For the m/z given, it prints the peak with highest intensity in interval
   [mz-tol ppm,mz+tol ppm] for every MS-1 scan.
 
-  Every line contains the retention time and intensity of a peak
+  Every line contains the retention time and intensity of a found peak
 
   Example:
       xic -mz 361.1466 -tol 2.5 -raw rawfile.raw
 
   Output:
-      361.1466 0.003496666666666667 10500.583
-      361.1466 0.015028333333333333 11793.04
-      361.1466 0.03391333333333333 10178.598
-      361.1466 0.05393333333333334 10671.821
-      361.1466 0.07350833333333334 11572.251
+      0.003496666666666667 10500.583
+      0.015028333333333333 11793.04
+      0.03391333333333333 10178.598
+      0.05393333333333334 10671.821
+      0.07350833333333334 11572.251
 */
 package main
 
