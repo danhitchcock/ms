@@ -107,6 +107,38 @@ func (rf *File) NScans() int {
 	return len(rf.scanindex)
 }
 
+// Computes mean spectrum from profile data
+func (rf *File) ComputeMeanSpectrum() (s ms.Spectrum) {
+	n := rf.NScans()
+	var total []float32
+	scn := new(ScanDataPacket)
+	for i := 0; i < n; i++ {
+		info := rf.scanindex[i]
+		if len(total) == 0 {
+			// assume that the number of bins is the same for all events
+			total = make([]float32, int(scn.Profile.Nbins))
+		}
+		readBetween(rf.f, info.Offset, info.Offset+uint64(info.DataPacketSize), 0, scn)
+
+		for i := uint32(0); i < scn.Profile.PeakCount; i++ {
+			for j := uint32(0); j < scn.Profile.Chunks[i].Nbins; j++ {
+				bin := scn.Profile.Chunks[i].Firstbin + j
+				if int(bin) < len(total) {
+					total[bin] += scn.Profile.Chunks[i].Signal[j] / float32(n)
+				}
+			}
+		}
+	}
+
+	// albeit axes are slightly different for scan events, here the last one is used for simplicity
+	for i := 0; i < len(total); i++ {
+		s = append(s,
+			ms.Peak{Mz: rf.scanevents[n-1].Convert(scn.Profile.FirstValue + scn.Profile.Step*float64(i)),
+				I: total[i]})
+	}
+	return
+}
+
 //Spectrum returns an ms.Spectrum belonging to the scan number in argument
 func (rf *File) spectrum(sn int) (s ms.Spectrum) {
 	//read Scan Packet for the scan
