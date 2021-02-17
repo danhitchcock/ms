@@ -3,7 +3,6 @@
 package unthermo
 
 import (
-	"bitbucket.org/proteinspector/ms"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -11,6 +10,8 @@ import (
 	"log"
 	"os"
 	"unicode/utf16"
+
+	"bitbucket.org/proteinspector/ms"
 )
 
 //File is an in-memory representation of the Thermo RAW file
@@ -98,7 +99,8 @@ func (rf *File) Scan(sn int) (scan ms.Scan) {
 	for j := range rf.scanevents[sn-1].Reaction {
 		scan.PrecursorMzs[j] = rf.scanevents[sn-1].Reaction[j].Precursormz
 	}
-	scan.Spectrum = func() ms.Spectrum { return rf.spectrum(sn) }
+	scan.Spectrum = rf.spectrum(sn)
+	//scan.Spectrum = func() ms.Spectrum { return rf.spectrum(sn) }
 	return
 }
 
