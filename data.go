@@ -19,7 +19,7 @@ type Scan struct {
 	//and Spectrum were a data structure, it would always have to
 	//be read, which is very expensive. Now if only another property of
 	//Scan (cheaper to obtain) is requested, resources are saved.
-	Spectrum func() Spectrum
+	Spectrum Spectrum
 	//PrecursorMzs is only filled with mz values at MSx scans.
 	PrecursorMzs []float64
 	Time         float64
