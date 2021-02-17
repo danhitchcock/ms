@@ -5,13 +5,14 @@
 package main
 
 import (
-	"bitbucket.org/proteinspector/ms"
-	"bitbucket.org/proteinspector/ms/unthermo"
 	"flag"
 	"fmt"
-	"github.com/pkelchte/spline"
 	"log"
 	"sort"
+
+	"github.com/danhitchcock/ms"
+	"github.com/danhitchcock/ms/unthermo"
+	"github.com/pkelchte/spline"
 )
 
 //tol is the tolerance (in ppm) for m/z peaks

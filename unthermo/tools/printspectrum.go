@@ -6,11 +6,12 @@
 package main
 
 import (
-	"bitbucket.org/proteinspector/ms"
-	"bitbucket.org/proteinspector/ms/unthermo"
 	"flag"
 	"fmt"
 	"log"
+
+	"github.com/danhitchcock/ms"
+	"github.com/danhitchcock/ms/unthermo"
 )
 
 func main() {

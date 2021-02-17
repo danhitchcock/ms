@@ -18,12 +18,13 @@
 package main
 
 import (
-	"bitbucket.org/proteinspector/ms"
-	"bitbucket.org/proteinspector/ms/unthermo"
 	"flag"
 	"fmt"
 	"log"
 	"sort"
+
+	"github.com/danhitchcock/ms"
+	"github.com/danhitchcock/ms/unthermo"
 )
 
 //mz is the m/z for the XIC

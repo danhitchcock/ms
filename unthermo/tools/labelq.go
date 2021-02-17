@@ -1,15 +1,16 @@
-//The labelq tool inserts iTRAQ reporter ions from HCD scans in CID spectra. 
+//The labelq tool inserts iTRAQ reporter ions from HCD scans in CID spectra.
 //
 //  Program output is MGF formatted MS2 spectra
 package main
 
 import (
-	"bitbucket.org/proteinspector/ms"
-	"bitbucket.org/proteinspector/ms/unthermo"
 	"flag"
 	"fmt"
 	"log"
 	"sort"
+
+	"github.com/danhitchcock/ms"
+	"github.com/danhitchcock/ms/unthermo"
 )
 
 var reporter_ions = [...]float64{114.1112, 115.1083, 116.1116, 117.1150}

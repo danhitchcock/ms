@@ -11,7 +11,7 @@ import (
 	"os"
 	"unicode/utf16"
 
-	"bitbucket.org/proteinspector/ms"
+	"github.com/danhitchcock/ms"
 )
 
 //File is an in-memory representation of the Thermo RAW file
