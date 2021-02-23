@@ -52,7 +52,7 @@ func Open(fn string) (file File, err error) {
 	//The list of them starts an uint32 later than ScantrailerAddr
 	nScans := uint64(rh.SampleInfo.LastScanNumber - rh.SampleInfo.FirstScanNumber + 1)
 	scanevents := make(ScanEvents, nScans)
-	readBetween(f, rh.ScantrailerAddr+4, rh.ScanparamsAddr, ver, scanevents)
+	readForScans(f, rh.ScantrailerAddr+4, rh.ScanparamsAddr, ver, rh.Model, scanevents)
 
 	//read all scanindexentries at once
 	scanindex := make(ScanIndex, nScans)
@@ -146,11 +146,11 @@ func (rf *File) spectrum(sn int) (s ms.Spectrum) {
 	//read Scan Packet for the scan
 	scn := new(ScanDataPacket)
 	readBetween(rf.f, rf.scanindex[sn-1].Offset, rf.scanindex[sn-1].Offset+uint64(rf.scanindex[sn-1].DataPacketSize), 0, scn)
-
 	if scn.Profile.PeakCount > 0 {
 		//convert Hz values into m/z and save the profile peaks
 		for i := uint32(0); i < scn.Profile.PeakCount; i++ {
 			for j := uint32(0); j < scn.Profile.Chunks[i].Nbins; j++ {
+
 				tmpmz := rf.scanevents[sn-1].Convert(scn.Profile.FirstValue+
 					float64(scn.Profile.Chunks[i].Firstbin+j)*scn.Profile.Step) +
 					float64(scn.Profile.Chunks[i].Fudge)
@@ -191,6 +191,19 @@ func readAt(rs io.ReadSeeker, pos uint64, v Version, data reader) uint64 {
 	}
 
 	return uint64(spos)
+}
+
+// Scans might need the instrument name. v66 is different between Exactives and the ID-X
+func readForScans(rs io.ReadSeeker, begin uint64, end uint64, v Version, m PascalString, data ScanEvents) {
+	_, err := rs.Seek(int64(begin), 0)
+	if err != nil {
+		log.Println("error seeking file", err)
+	}
+
+	b := make([]byte, end-begin) //may fail because of memory requirements
+	io.ReadFull(rs, b)
+
+	data.Read(bytes.NewReader(b), v, m)
 }
 
 //Copies the range in memory and then fills the Reader
@@ -348,14 +361,14 @@ func (data *TrailerLength) Read(r io.Reader, v Version) {
   conversion parameters from Hz to m/z
 */
 type ScanEvent struct {
-	Preamble [132]uint8 //128 bytes from v63 on, 120 in v62, 80 in v57, 41 below that
+	Preamble [132]uint8 //132 v66, 128 bytes from v63 on, 120 in v62, 80 in v57, 41 below that
 	//Preamble[6] == ms-level
 	//Preamble[40] == analyzer
 	Nprecursors uint32
 
 	Reaction []Reaction
 
-	Unknown1 [13]uint32
+	Unknown1 [15]uint32
 	MZrange  [3]FractionCollector
 	Nparam   uint32
 
@@ -380,13 +393,13 @@ type FractionCollector struct {
 
 type ScanEvents []ScanEvent
 
-func (data ScanEvents) Read(r io.Reader, v Version) {
+func (data ScanEvents) Read(r io.Reader, v Version, m PascalString) {
 	for i := range data {
-		data[i].Read(r, v)
+		data[i].Read(r, v, m)
 	}
 }
 
-func (data *ScanEvent) Read(r io.Reader, v Version) {
+func (data *ScanEvent) Read(r io.Reader, v Version, m PascalString) {
 	if v < 66 {
 		switch {
 		case v < 57:
@@ -423,7 +436,7 @@ func (data *ScanEvent) Read(r io.Reader, v Version) {
 		}
 
 		binaryread(r, data.Unknown1[1:3])
-	} else { //v66
+	} else if m.String() != "Orbitrap ID-X" { //v66
 		binaryread(r, &data.Preamble)
 		binaryread(r, &data.Unknown1[0])
 		binaryread(r, &data.Nprecursors) //this is just a guess according to Gene Selkov
@@ -449,7 +462,42 @@ func (data *ScanEvent) Read(r io.Reader, v Version) {
 		binaryread(r, &data.B)
 		binaryread(r, &data.C)
 		binaryread(r, data.Unknown1[8:13])
+
+	} else { // If it's an ID-X
+		binaryread(r, &data.Preamble)
+		binaryread(r, data.Unknown1[0:2])
+		binaryread(r, &data.Nprecursors) //this is just a guess according to Gene Selkov
+		if data.Preamble[10] == 1 {      //ms2 (dependent scan)
+			data.Reaction = make([]Reaction, data.Nprecursors)
+			for i := range data.Reaction {
+				binaryread(r, &data.Reaction[i])
+			}
+			binaryread(r, data.Unknown2[0:2])
+			binaryread(r, data.Unknown1[1:4])
+			binaryread(r, &data.MZrange[0])
+			binaryread(r, &data.Nparam)
+		} else { //ms1
+
+			binaryread(r, &data.MZrange[0])
+			binaryread(r, &data.Nparam)
+		}
+		binaryread(r, data.Unknown2[2:4])
+		binaryread(r, &data.A)
+		binaryread(r, &data.B)
+		binaryread(r, &data.C)
+		binaryread(r, data.Unknown1[8:15])
 	}
+	// fmt.Println(data.Preamble)
+	// fmt.Println(data.Unknown1[0])
+	// fmt.Println("Precursors: ", data.Nprecursors)
+	// fmt.Println("MZRange: ", data.MZrange[0], data.MZrange[1], data.MZrange[2])
+	// fmt.Println("A: ", data.A)
+	// fmt.Println("B: ", data.B)
+	// fmt.Println("C: ", data.C)
+	// fmt.Println("Unknown1: ", data.Unknown1)
+	// fmt.Println("Unknown2: ", data.Unknown2)
+	//fmt.Println("Nparam: ", data.Nparam)
+
 }
 
 //Convert Hz values to m/z
