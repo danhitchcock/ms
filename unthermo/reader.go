@@ -133,8 +133,7 @@ func (rf *File) ComputeMeanSpectrum() (s ms.Spectrum) {
 			// assume that the number of bins is the same for all events
 			total = make([]float32, int(scn.Profile.Nbins))
 		}
-		readSpectra(rf.f, rf.b, info.Offset, info.Offset+uint64(info.DataPacketSize), 0, scn)
-
+		scn.Read(rf.b[info.Offset:info.Offset+uint64(info.DataPacketSize)], 0)
 		for i := uint32(0); i < scn.Profile.PeakCount; i++ {
 			for j := uint32(0); j < scn.Profile.Chunks[i].Nbins; j++ {
 				bin := scn.Profile.Chunks[i].Firstbin + j
@@ -160,7 +159,6 @@ func (rf *File) spectrum(sn int) (s ms.Spectrum) {
 	scn := new(ScanDataPacket)
 	begin := rf.scanindex[sn-1].Offset
 	end := begin + uint64(rf.scanindex[sn-1].DataPacketSize)
-	//readSpectra(rf.f, rf.b, rf.scanindex[sn-1].Offset, rf.scanindex[sn-1].Offset+uint64(rf.scanindex[sn-1].DataPacketSize), 0, scn)
 	scn.Read(rf.b[begin:end], 0)
 
 	sTotal := 0
@@ -242,19 +240,6 @@ func readBetween(rs io.ReadSeeker, bf []byte, begin uint64, end uint64, v Versio
 	io.ReadFull(rs, b)
 
 	data.Read(bytes.NewReader(b), v)
-}
-
-//Copies the range in memory and then fills the Reader
-//This tested faster than bufio or just reading away
-func readSpectra(rs io.ReadSeeker, bf []byte, begin uint64, end uint64, v Version, data *ScanDataPacket) {
-	// _, err := rs.Seek(int64(begin), 0)
-	// if err != nil {
-	// 	log.Println("error seeking file", err)
-	// }
-
-	b := make([]byte, end-begin) //may fail because of memory requirements
-	// io.ReadFull(rs, b)
-	data.Read(b[begin:end], v)
 }
 
 //Read only the initial header part of the file (for the juicy addresses)
