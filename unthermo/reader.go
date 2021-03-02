@@ -7,9 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"io/ioutil"
 	"log"
-	"math"
 	"os"
 	"unicode/utf16"
 
@@ -20,24 +18,21 @@ import (
 type File struct {
 	//the file on disk
 	f *os.File
-	b []byte
 	//scanevents contains additional data about the scans (Hz-m/z conversion, scan type, ...)
 	scanevents ScanEvents
 	//scanindexentries is an index containing the scan addresses and additional info
 	//such as retention time and total current
 	scanindex ScanIndex
-	Scans     []ms.Scan
 }
 
 //Open opens the supplied filename and reads the indices from the RAW file in memory. Multiple files may be read concurrently.
 func Open(fn string) (file File, err error) {
 	f, err := os.Open(fn)
-
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	b, _ := ioutil.ReadFile(fn)
+
 	//Read headers for file version and RunHeader addresses.
 	info, ver := readHeaders(f)
 	rh := new(RunHeader)
@@ -61,28 +56,19 @@ func Open(fn string) (file File, err error) {
 
 	//read all scanindexentries at once
 	scanindex := make(ScanIndex, nScans)
-	readBetween(f, b, rh.ScanindexAddr, rh.ScantrailerAddr, ver, scanindex)
+	readBetween(f, rh.ScanindexAddr, rh.ScantrailerAddr, ver, scanindex)
 
 	//make the offsets absolute in the file instead of relative to the data address
-	rf := File{f: f, b: b, scanevents: scanevents, scanindex: scanindex}
-
 	for i := range scanindex {
 		scanindex[i].Offset += rh.DataAddr
 	}
-	rf.MakeScans()
-	return rf, err
+
+	return File{f: f, scanevents: scanevents, scanindex: scanindex}, err
 }
 
 //Close closes the RAW file
 func (rf *File) Close() error {
 	return rf.f.Close()
-}
-
-func (rf *File) MakeScans() {
-	rf.Scans = make([]ms.Scan, rf.NScans())
-	for i := 0; i < rf.NScans(); i++ {
-		rf.Scans[i] = rf.Scan(i + 1)
-	}
 }
 
 /*
@@ -104,6 +90,7 @@ func (rf *File) Scan(sn int) (scan ms.Scan) {
 		log.Print("Scan Number ", sn, " is out of bounds [1, ", rf.NScans(), "]")
 		return
 	}
+
 	scan.Time = rf.scanindex[sn-1].Time
 	scan.MSLevel = rf.scanevents[sn-1].Preamble[6]
 	scan.Analyzer = ms.Analyzer(rf.scanevents[sn-1].Preamble[40])
@@ -133,7 +120,7 @@ func (rf *File) ComputeMeanSpectrum() (s ms.Spectrum) {
 			// assume that the number of bins is the same for all events
 			total = make([]float32, int(scn.Profile.Nbins))
 		}
-		readSpectra(rf.f, rf.b, info.Offset, info.Offset+uint64(info.DataPacketSize), 0, scn)
+		readBetween(rf.f, info.Offset, info.Offset+uint64(info.DataPacketSize), 0, scn)
 
 		for i := uint32(0); i < scn.Profile.PeakCount; i++ {
 			for j := uint32(0); j < scn.Profile.Chunks[i].Nbins; j++ {
@@ -158,26 +145,17 @@ func (rf *File) ComputeMeanSpectrum() (s ms.Spectrum) {
 func (rf *File) spectrum(sn int) (s ms.Spectrum) {
 	//read Scan Packet for the scan
 	scn := new(ScanDataPacket)
-	readSpectra(rf.f, rf.b, rf.scanindex[sn-1].Offset, rf.scanindex[sn-1].Offset+uint64(rf.scanindex[sn-1].DataPacketSize), 0, scn)
-
-	// return
-	sTotal := 0
-	for i := uint32(0); i < scn.Profile.PeakCount; i++ {
-		sTotal += int(scn.Profile.Chunks[i].Nbins)
-	}
-	s = make([]ms.Peak, sTotal)
-
+	readBetween(rf.f, rf.scanindex[sn-1].Offset, rf.scanindex[sn-1].Offset+uint64(rf.scanindex[sn-1].DataPacketSize), 0, scn)
 	if scn.Profile.PeakCount > 0 {
 		//convert Hz values into m/z and save the profile peaks
-		k := 0
 		for i := uint32(0); i < scn.Profile.PeakCount; i++ {
 			for j := uint32(0); j < scn.Profile.Chunks[i].Nbins; j++ {
 
 				tmpmz := rf.scanevents[sn-1].Convert(scn.Profile.FirstValue+
 					float64(scn.Profile.Chunks[i].Firstbin+j)*scn.Profile.Step) +
 					float64(scn.Profile.Chunks[i].Fudge)
-				s[k] = ms.Peak{Mz: tmpmz, I: scn.Profile.Chunks[i].Signal[j]}
-				k++
+				s = append(s,
+					ms.Peak{Mz: tmpmz, I: scn.Profile.Chunks[i].Signal[j]})
 			}
 		}
 	} else {
@@ -230,7 +208,7 @@ func readForScans(rs io.ReadSeeker, begin uint64, end uint64, v Version, m Pasca
 
 //Copies the range in memory and then fills the Reader
 //This tested faster than bufio or just reading away
-func readBetween(rs io.ReadSeeker, bf []byte, begin uint64, end uint64, v Version, data reader) {
+func readBetween(rs io.ReadSeeker, begin uint64, end uint64, v Version, data reader) {
 	_, err := rs.Seek(int64(begin), 0)
 	if err != nil {
 		log.Println("error seeking file", err)
@@ -240,20 +218,6 @@ func readBetween(rs io.ReadSeeker, bf []byte, begin uint64, end uint64, v Versio
 	io.ReadFull(rs, b)
 
 	data.Read(bytes.NewReader(b), v)
-}
-
-//Copies the range in memory and then fills the Reader
-//This tested faster than bufio or just reading away
-func readSpectra(rs io.ReadSeeker, bf []byte, begin uint64, end uint64, v Version, data *ScanDataPacket) {
-	_, err := rs.Seek(int64(begin), 0)
-	if err != nil {
-		log.Println("error seeking file", err)
-	}
-
-	b := make([]byte, end-begin) //may fail because of memory requirements
-	io.ReadFull(rs, b)
-
-	data.Read(b, v)
 }
 
 //Read only the initial header part of the file (for the juicy addresses)
@@ -337,87 +301,48 @@ type ProfileChunk struct {
 
 type ScanDataPackets []ScanDataPacket
 
-func (data ScanDataPackets) Read(r []byte, v Version) {
+func (data ScanDataPackets) Read(r io.Reader, v Version) {
 	for i := range data {
 		data[i].Read(r, v)
 	}
 }
 
-func (data *ScanDataPacket) Read(b []byte, v Version) {
-
-	index := 0
-	data.Header.Unknown1 = binary.LittleEndian.Uint32(b[index : index+4])
-	index += 4
-	data.Header.ProfileSize = binary.LittleEndian.Uint32(b[index : index+4])
-	index += 4
-	data.Header.PeaklistSize = binary.LittleEndian.Uint32(b[index : index+4])
-	index += 4
-	data.Header.Layout = binary.LittleEndian.Uint32(b[index : index+4])
-	index += 4
-	data.Header.DescriptorListSize = binary.LittleEndian.Uint32(b[index : index+4])
-	index += 4
-	data.Header.UnknownStreamSize = binary.LittleEndian.Uint32(b[index : index+4])
-	index += 4
-	data.Header.TripletStreamSize = binary.LittleEndian.Uint32(b[index : index+4])
-	index += 4
-	data.Header.Unknown2 = binary.LittleEndian.Uint32(b[index : index+4])
-	index += 4
-	data.Header.Lowmz = math.Float32frombits(binary.LittleEndian.Uint32(b[index : index+4]))
-	index += 4
-	data.Header.Highmz = math.Float32frombits(binary.LittleEndian.Uint32(b[index : index+4]))
-	index += 4
-	data.PeakList.Peaks = make([]CentroidedPeak, data.PeakList.Count)
+func (data *ScanDataPacket) Read(r io.Reader, v Version) {
+	binaryread(r, &data.Header)
 
 	if data.Header.ProfileSize > 0 {
-		data.Profile.FirstValue = math.Float64frombits(binary.LittleEndian.Uint64(b[index : index+8]))
-		index += 8
-		data.Profile.Step = math.Float64frombits(binary.LittleEndian.Uint64(b[index : index+8]))
-		index += 8
-		data.Profile.PeakCount = binary.LittleEndian.Uint32(b[index : index+4])
-		index += 4
-		data.Profile.Nbins = binary.LittleEndian.Uint32(b[index : index+4])
-		index += 4
+		binaryread(r, &data.Profile.FirstValue)
+		binaryread(r, &data.Profile.Step)
+		binaryread(r, &data.Profile.PeakCount)
+		binaryread(r, &data.Profile.Nbins)
 
 		data.Profile.Chunks = make([]ProfileChunk, data.Profile.PeakCount)
 
 		for i := uint32(0); i < data.Profile.PeakCount; i++ {
-			data.Profile.Chunks[i].Firstbin = binary.LittleEndian.Uint32(b[index : index+4])
-			index += 4
-			data.Profile.Chunks[i].Nbins = binary.LittleEndian.Uint32(b[index : index+4])
-			index += 4
-			data.Profile.Chunks[i].Signal = make([]float32, data.Profile.Chunks[i].Nbins)
+			binaryread(r, &data.Profile.Chunks[i].Firstbin)
+			binaryread(r, &data.Profile.Chunks[i].Nbins)
 			if data.Header.Layout > 0 {
-				data.Profile.Chunks[i].Fudge = math.Float32frombits(binary.LittleEndian.Uint32(b[index : index+4]))
-				index += 4
+				binaryread(r, &data.Profile.Chunks[i].Fudge)
 			}
-			for j := uint32(0); j < data.Profile.Chunks[i].Nbins; j++ {
-
-				data.Profile.Chunks[i].Signal[j] = math.Float32frombits(binary.LittleEndian.Uint32(b[index : index+4]))
-				index += 4
-			}
-			data.Profile.Chunks[i].Fudge = math.Float32frombits(binary.LittleEndian.Uint32(b[index : index+4]))
+			data.Profile.Chunks[i].Signal = make([]float32, data.Profile.Chunks[i].Nbins)
+			binaryread(r, data.Profile.Chunks[i].Signal)
 		}
 	}
 
 	if data.Header.PeaklistSize > 0 {
-		data.PeakList.Count = binary.LittleEndian.Uint32(b[index : index+4])
-		index += 4
-		for j := range data.PeakList.Peaks {
-			data.PeakList.Peaks[j].Mz = math.Float32frombits(binary.LittleEndian.Uint32(b[index : index+4]))
-			index += 4
-			data.PeakList.Peaks[j].Abundance = math.Float32frombits(binary.LittleEndian.Uint32(b[index : index+4]))
-			index += 4
-		}
+		binaryread(r, &data.PeakList.Count)
+		data.PeakList.Peaks = make([]CentroidedPeak, data.PeakList.Count)
+		binaryread(r, data.PeakList.Peaks)
 	}
 
-	// data.DescriptorList = make([]PeakDescriptor, data.Header.DescriptorListSize)
-	// binaryread(r, data.DescriptorList)
+	data.DescriptorList = make([]PeakDescriptor, data.Header.DescriptorListSize)
+	binaryread(r, data.DescriptorList)
 
-	// data.Unknown = make([]float32, data.Header.UnknownStreamSize)
-	// binaryread(r, data.Unknown)
+	data.Unknown = make([]float32, data.Header.UnknownStreamSize)
+	binaryread(r, data.Unknown)
 
-	// data.Triplets = make([]float32, data.Header.TripletStreamSize)
-	// binaryread(r, data.Triplets)
+	data.Triplets = make([]float32, data.Header.TripletStreamSize)
+	binaryread(r, data.Triplets)
 
 }
 
