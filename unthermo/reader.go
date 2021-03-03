@@ -11,7 +11,9 @@ import (
 	"log"
 	"math"
 	"os"
+	"reflect"
 	"unicode/utf16"
+	"unsafe"
 
 	"github.com/danhitchcock/ms"
 )
@@ -38,6 +40,7 @@ func Open(fn string) (file File, err error) {
 		return
 	}
 	b, _ := ioutil.ReadFile(fn)
+	// b := []byte{0}
 	//Read headers for file version and RunHeader addresses.
 	info, ver := readHeaders(f)
 	rh := new(RunHeader)
@@ -69,7 +72,8 @@ func Open(fn string) (file File, err error) {
 	for i := range scanindex {
 		scanindex[i].Offset += rh.DataAddr
 	}
-	rf.MakeScans()
+	rf.Scans = make([]ms.Scan, rf.NScans())
+	rf.makeScans()
 	return rf, err
 }
 
@@ -78,10 +82,9 @@ func (rf *File) Close() error {
 	return rf.f.Close()
 }
 
-func (rf *File) MakeScans() {
-	rf.Scans = make([]ms.Scan, rf.NScans())
+func (rf *File) makeScans() {
 	for i := 0; i < rf.NScans(); i++ {
-		rf.Scans[i] = rf.Scan(i + 1)
+		rf.Scan(i + 1)
 	}
 }
 
@@ -113,6 +116,7 @@ func (rf *File) Scan(sn int) (scan ms.Scan) {
 		scan.PrecursorMzs[j] = rf.scanevents[sn-1].Reaction[j].Precursormz
 	}
 	scan.Spectrum = rf.spectrum(sn)
+	rf.Scans[sn-1] = scan
 	//scan.Spectrum = func() ms.Spectrum { return rf.spectrum(sn) }
 	return
 }
@@ -158,24 +162,26 @@ func (rf *File) spectrum(sn int) (s ms.Spectrum) {
 	//read Scan Packet for the scan
 	scn := new(ScanDataPacket)
 	begin := rf.scanindex[sn-1].Offset
-	end := begin + uint64(rf.scanindex[sn-1].DataPacketSize)
-	scn.Read(rf.b[begin:end], 0)
+	//end := begin + uint64(rf.scanindex[sn-1].DataPacketSize)
+
+	scn.Read(rf.b[begin:], 0)
 
 	sTotal := 0
 	for i := uint32(0); i < scn.Profile.PeakCount; i++ {
 		sTotal += int(scn.Profile.Chunks[i].Nbins)
 	}
+	// return
 	s = make([]ms.Peak, sTotal)
-
 	if scn.Profile.PeakCount > 0 {
 		//convert Hz values into m/z and save the profile peaks
+
 		k := 0
+		var val float64
+		var tmpmz float64
 		for i := uint32(0); i < scn.Profile.PeakCount; i++ {
 			for j := uint32(0); j < scn.Profile.Chunks[i].Nbins; j++ {
-
-				tmpmz := rf.scanevents[sn-1].Convert(scn.Profile.FirstValue+
-					float64(scn.Profile.Chunks[i].Firstbin+j)*scn.Profile.Step) +
-					float64(scn.Profile.Chunks[i].Fudge)
+				val = scn.Profile.FirstValue + float64(scn.Profile.Chunks[i].Firstbin+j)*scn.Profile.Step + float64(scn.Profile.Chunks[i].Fudge)
+				tmpmz = ConvertMz(val, rf.scanevents[sn-1].Nparam, rf.scanevents[sn-1].A, rf.scanevents[sn-1].B, rf.scanevents[sn-1].C)
 				s[k] = ms.Peak{Mz: tmpmz, I: scn.Profile.Chunks[i].Signal[j]}
 				k++
 			}
@@ -190,6 +196,18 @@ func (rf *File) spectrum(sn int) (s ms.Spectrum) {
 		}
 	}
 	return
+}
+
+// Converts Hz to MZ
+func ConvertMz(v float64, Nparam uint32, A float64, B float64, C float64) float64 {
+	switch Nparam {
+	case 4:
+		return A + B/v + C/v/v
+	case 5, 7:
+		return A + B/v/v + C/v/v/v/v
+	default:
+		return v
+	}
 }
 
 //interface shared by all data objects in the raw file
@@ -319,6 +337,7 @@ type ProfileChunk struct {
 	Nbins    uint32
 	Fudge    float32
 	Signal   []float32
+	Mz       float64
 }
 
 type ScanDataPackets []ScanDataPacket
@@ -371,16 +390,26 @@ func (data *ScanDataPacket) Read(b []byte, v Version) {
 			index += 4
 			data.Profile.Chunks[i].Nbins = binary.LittleEndian.Uint32(b[index : index+4])
 			index += 4
-			data.Profile.Chunks[i].Signal = make([]float32, data.Profile.Chunks[i].Nbins)
+
 			if data.Header.Layout > 0 {
 				data.Profile.Chunks[i].Fudge = math.Float32frombits(binary.LittleEndian.Uint32(b[index : index+4]))
 				index += 4
 			}
-			for j := uint32(0); j < data.Profile.Chunks[i].Nbins; j++ {
 
-				data.Profile.Chunks[i].Signal[j] = math.Float32frombits(binary.LittleEndian.Uint32(b[index : index+4]))
-				index += 4
-			}
+			len := int(data.Profile.Chunks[i].Nbins)
+			data.Profile.Chunks[i].Signal = *(*[]float32)(unsafe.Pointer(&reflect.SliceHeader{
+				Data: uintptr(unsafe.Pointer(&b[index])),
+				Len:  len,
+				Cap:  len}))
+			index += len * 4
+
+			// data.Profile.Chunks[i].Signal = make([]float32, data.Profile.Chunks[i].Nbins)
+			// for j := uint32(0); j < data.Profile.Chunks[i].Nbins; j++ {
+
+			// 	data.Profile.Chunks[i].Signal[j] = math.Float32frombits(binary.LittleEndian.Uint32(b[index : index+4]))
+			// 	index += 4
+			// }
+
 			data.Profile.Chunks[i].Fudge = math.Float32frombits(binary.LittleEndian.Uint32(b[index : index+4]))
 		}
 	}
